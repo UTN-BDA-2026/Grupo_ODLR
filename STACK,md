@@ -1,0 +1,82 @@
+# Stack Tecnológico
+
+## Backend
+
+- Lenguaje: Python 3.11
+- Framework: FastAPI
+- Arquitectura: Modular / Clean Architecture
+
+## Base de Datos
+
+- Motor: MongoDB
+- Driver: Motor (async)
+
+### Reglas
+
+- No usar SQLAlchemy
+- No usar ORM relacional
+- Usar acceso mediante repository pattern
+- No acceder a Mongo directamente desde endpoints
+
+## Migraciones
+
+- Sistema custom en carpeta `/migrations`
+- Cada migración es un archivo con funciones async:
+  - up(db)
+  - down(db)
+
+### Reglas
+
+- No usar clases
+- No mezclar migraciones con lógica de negocio
+- MongoDB es la fuente de verdad (`_migration_log`)
+
+## Testing
+
+- Framework: pytest
+
+### Reglas
+
+- Tests unitarios obligatorios en servicios
+- No testear endpoints directamente primero
+- Priorizar test de lógica de negocio
+
+## Infraestructura
+
+- Contenedores: Docker
+- Versionado: Git
+
+### Reglas
+
+- Cada feature en branch separada
+- No pushear a main sin tests
+
+## Estándares de Código
+
+- Clean Code
+- SOLID
+- KISS
+- YAGNI
+
+---
+
+# Decisiones Arquitectónicas Clave
+
+- Se usa MongoDB → modelo basado en documentos, no relaciones
+- Se usa Motor → async, no ORM
+- Migraciones custom → no Alembic
+- Separación estricta:
+  - API
+  - Services
+  - Repository
+  - Migrations
+
+---
+
+# Anti-patrones prohibidos
+
+- Usar SQLAlchemy con MongoDB
+- Acceder a la DB desde endpoints
+- Lógica de negocio en routers
+- Scripts sueltos para migraciones
+- Mezclar sync y async sin control
