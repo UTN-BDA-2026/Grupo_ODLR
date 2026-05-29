@@ -1,357 +1,486 @@
-# PDF Extract API
+# pdf_extractext
 
-# Integrantes: Olivetti Santino, De los Rios Juan Ignacio, De la Rosa Santiago
+API REST para extracción de texto desde archivos PDF, construida con FastAPI y MongoDB.
 
-API REST para extracción de texto desde archivos PDF, con persistencia en MongoDB y validación por checksum SHA-256.
-
----
-
-## 🛠️ Stack tecnológico
+## Stack tecnológico
 
 | Componente | Tecnología |
-|-----------|-----------|
-| Lenguaje | Python 3.11 |
-| Framework | FastAPI |
+|---|---|
+| Framework | FastAPI (Python 3.11+) |
 | Base de datos | MongoDB 7.0 |
-| Driver async | Motor |
-| Gestor de paquetes | UV |
+| Driver async | Motor + Beanie |
+| Autenticación | JWT (PyJWT) + pbkdf2_sha256 |
 | Extracción PDF | PyMuPDF (fitz) |
-| Autenticación | JWT (PyJWT) |
 | Contenedores | Docker + Docker Compose |
+| Migraciones | Sistema custom con lock distribuido |
+
+## Temas implementados
+
+- **Seguridad** — JWT, pbkdf2, validación de SECRET_KEY, capas de defensa
+- **Índices** — B-Tree en MongoDB, unique, compuesto, parcial, sparse
+- **Backup & Restore** — mongodump/mongorestore, scripts Python, endpoint REST
+- **Transacciones** — ACID multi-documento con audit log atómico
 
 ---
 
-## 📋 Requisitos previos
+## Instalación y puesta en marcha
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) instalado y corriendo
-- [UV](https://docs.astral.sh/uv/getting-started/installation/) instalado (para desarrollo local)
+### Requisitos previos
+
+- Docker Desktop (corriendo)
+- Python 3.11+
+- `uv` (gestor de paquetes)
 - Git
 
----
-
-## 🚀 Ejecución con Docker (recomendado)
-
-### 1. Clonar el repositorio
+### Paso 1 — Clonar el repositorio
 
 ```bash
-git clone https://github.com/juandelosrios124/pdf_extractext
+git clone https://github.com/juandelosrios124/pdf_extractext.git
 cd pdf_extractext
 ```
 
-### 2. Configurar variables de entorno
+### Paso 2 — Crear el archivo `.env`
 
 ```bash
-# Windows
-copy .env.example .env
-
-# Linux / Mac
-cp .env.example .env
+Copy-Item .env.example .env   # Windows
+cp .env.example .env          # Linux/Mac
 ```
 
-Editá el archivo `.env` con tus valores:
+Editar `.env` y configurar al menos estas variables:
 
-```ini
-# Application
-APP_NAME=PDF Extract API
-APP_VERSION=1.0.0
-DEBUG=True
-ENVIRONMENT=development
-
-# MongoDB — nombre del servicio en Docker Compose
+```env
 MONGODB_URL=mongodb://mongodb:27017
 MONGODB_DB_NAME=pdf_extract_db
-
-# Auth
-SECRET_KEY=tu-clave-secreta-aqui
-
-# Logging
-LOG_LEVEL=INFO
-
-# File Upload (bytes) — 50MB por defecto
-MAX_UPLOAD_SIZE=52428800
+SECRET_KEY=<clave-aleatoria-de-al-menos-32-caracteres>
 ```
 
-### 3. Levantar los servicios
+Generar una `SECRET_KEY` segura:
 
 ```bash
-docker compose up --build
+python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-> La primera vez tarda unos minutos mientras descarga las imágenes base.
+### Paso 3 — Levantar los containers
 
-Cuando veas esto, la app está lista:
-
-```
-mongodb-1  | Waiting for connections
-app-1      | INFO: Application startup complete.
-app-1      | INFO: Uvicorn running on http://0.0.0.0:8000
+```bash
+docker compose up -d
+docker compose ps
 ```
 
-### 4. Abrir la documentación interactiva
+Ambos containers deben aparecer en estado `Up`:
 
 ```
-http://localhost:8000/api/docs
+grupo_odlr-app-1       ...   Up   0.0.0.0:8000->8000/tcp
+grupo_odlr-mongodb-1   ...   Up   0.0.0.0:27017->27017/tcp
 ```
 
----
+### Paso 4 — Aplicar las migraciones
 
-## 💻 Ejecución local (sin Docker)
+Las migraciones se ejecutan desde fuera del container, por lo que necesitás que `MONGODB_URL` apunte a `localhost` temporalmente:
 
-> Requiere MongoDB corriendo localmente en `mongodb://localhost:27017`
-
-### 1. Instalar dependencias
+```env
+# En .env, cambiar a:
+MONGODB_URL=mongodb://localhost:27017
+```
 
 ```bash
 uv sync
+python -m migrations migrate
 ```
 
-### 2. Configurar variables de entorno
+Después volver a dejar `MONGODB_URL=mongodb://mongodb:27017` y reiniciar:
 
 ```bash
-copy .env.example .env
+docker compose restart app
 ```
 
-Cambiá `MONGODB_URL` en el `.env`:
+### Paso 5 — Crear un usuario inicial
 
-```ini
-MONGODB_URL=mongodb://localhost:27017
-DEBUG=True
+Abrir el Swagger en `http://localhost:8000/api/docs` y ejecutar `POST /api/v1/users/`:
+
+```json
+{
+  "username": "admin",
+  "email": "admin@test.com",
+  "password": "admin123"
+}
 ```
 
-### 3. Levantar la aplicación
+### Paso 6 — Verificar que todo funciona
 
 ```bash
-uvicorn app.main:app --reload
+curl http://localhost:8000/health
+# Respuesta esperada: {"status": "healthy"}
 ```
 
 ---
 
-## ✅ Comprobar funcionamiento
+## Referencia de endpoints
 
-### 1. Health check
+| Método | Endpoint | Auth | Descripción |
+|---|---|---|---|
+| POST | `/api/v1/auth/login` | No | Obtener JWT token |
+| GET | `/api/v1/auth/me` | Sí | Usuario actual |
+| POST | `/api/v1/users/` | No | Crear usuario |
+| POST | `/api/v1/pdf/upload` | Sí | Subir PDF |
+| POST | `/api/v1/pdf/upload-audited` | Sí | Subir PDF con transacción ACID |
+| GET | `/api/v1/pdf/` | Sí | Listar documentos |
+| GET | `/api/v1/pdf/{id}` | Sí | Obtener documento |
+| PUT | `/api/v1/pdf/{id}` | Sí | Actualizar documento |
+| DELETE | `/api/v1/pdf/{id}` | Sí | Eliminar documento |
+| POST | `/api/v1/admin/backup` | Sí | Triggear backup manual |
+| GET | `/api/v1/admin/backups` | Sí | Listar backups disponibles |
+| GET | `/api/v1/health/` | No | Health check |
 
-Verificá que la app y MongoDB estén conectados:
+---
 
-```bash
-curl http://localhost:8000/api/v1/health/
-```
+## Tema 1: Índices
 
-Respuesta esperada:
+### Concepto
 
-```json
-{
-  "status": "healthy",
-  "version": "1.0.0",
-  "environment": "development"
-}
-```
+Un índice en MongoDB es una estructura B-Tree que permite resolver queries sin hacer un collection scan (COLLSCAN). Sin índice MongoDB recorre todos los documentos en O(n). Con índice va directo al resultado en O(log n).
 
-### 2. Subir un PDF — Swagger UI (recomendado)
+### Índices creados
 
-1. Abrí `http://localhost:8000/api/docs`
-2. Expandí `POST /api/v1/pdf/upload`
-3. Click en **Try it out**
-4. Seleccioná un archivo PDF desde tu computadora
-5. Click en **Execute**
+| Nombre | Campo | Tipo | Propósito |
+|---|---|---|---|
+| `idx_users_email_unique` | email | Único | Login rápido + integridad |
+| `idx_users_username_unique` | username | Único | Integridad de datos |
+| `idx_users_email_active` | (email, is_active) | Compuesto | Queries de autenticación |
+| `idx_docs_checksum_unique` | checksum | Único + Sparse | Detección de duplicados |
+| `idx_docs_filename` | filename | Simple | Búsqueda por nombre |
+| `idx_docs_created_at_desc` | (created_at, -1) | Descendente | Paginación por fecha |
+| `idx_docs_owner_active` | owner_id | Parcial | Solo docs activos en RAM |
 
-Respuesta exitosa:
+### Cómo probar
 
-```json
-{
-  "id": "507f1f77bcf86cd799439011",
-  "filename": "mi_documento.pdf",
-  "checksum": "e3b0c44298fc1c149afbf4c8996fb924...",
-  "text": "Contenido extraído del PDF..."
-}
-```
-
-### 3. Subir un PDF — curl
-
-```bash
-curl -X POST http://localhost:8000/api/v1/pdf/upload \
-  -F "file=@ruta/a/tu/archivo.pdf"
-```
-
-### 4. Crear un usuario y autenticarse
+**Verificar que los índices existen:**
 
 ```bash
-# Crear usuario
-curl -X POST http://localhost:8000/api/v1/users/ \
-  -H "Content-Type: application/json" \
-  -d '{"email": "usuario@ejemplo.com", "username": "usuario", "password": "mipassword123"}'
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').documents.getIndexes().forEach(i => print(i.name))"
+```
 
-# Login — obtener JWT token
+Resultado esperado:
+```
+_id_
+idx_filename
+idx_created_at_desc
+idx_status_created_at
+idx_docs_checksum_unique
+idx_docs_owner_active
+```
+
+**Demostrar COLLSCAN vs IXSCAN:**
+
+```bash
+python scripts/demo_indexes.py
+```
+
+Resultado esperado:
+```
+=======================================================
+  DEMO: explain() - COLLSCAN vs IXSCAN
+=======================================================
+
+  [✓] Detección de PDF duplicado
+      Stage: IXSCAN — O(log n) — acceso directo
+
+  [✓] Búsqueda por filename
+      Stage: IXSCAN — O(log n) — acceso directo
+
+  [✓] Login por email
+      Stage: IXSCAN — O(log n) — acceso directo
+```
+
+---
+
+## Tema 2: Backup & Restore
+
+### Concepto
+
+Un sistema de backup profesional cubre frecuencia, retención, verificación y restauración. Los dos KPIs clave son:
+
+- **RPO** (Recovery Point Objective): cuánto dato se puede perder — depende de la frecuencia del backup
+- **RTO** (Recovery Time Objective): cuánto tarda en recuperar — en este proyecto, segundos con mongorestore
+
+### Archivos
+
+| Archivo | Descripción |
+|---|---|
+| `scripts/backup.py` | Genera dump comprimido con timestamp |
+| `scripts/restore.py` | Restaura desde backup específico o el más reciente |
+| `backups/<timestamp>/` | Directorio con archivos `.bson.gz` y `manifest.json` |
+
+### Cómo probar el ciclo completo
+
+**1. Verificar que hay documentos:**
+
+```bash
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
+# Debe mostrar un número > 0
+```
+
+**2. Hacer el backup:**
+
+```bash
+python scripts/backup.py
+
+# Resultado esperado:
+# Iniciando backup: 20260528_123456
+# Base de datos: pdf_extract_db
+# Backup completado: backups\20260528_123456/
+```
+
+**3. Simular pérdida de datos:**
+
+```bash
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').documents.deleteMany({})"
+# Resultado: { acknowledged: true, deletedCount: N }
+```
+
+**4. Verificar que la DB está vacía:**
+
+```bash
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
+# Debe mostrar: 0
+```
+
+**5. Restaurar:**
+
+```bash
+python scripts/restore.py
+# Usa el backup más reciente automáticamente
+# Confirmar con: s
+
+# O restaurar uno específico:
+python scripts/restore.py 20260528_123456
+```
+
+**6. Verificar que los datos volvieron:**
+
+```bash
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
+# Debe mostrar el número original
+```
+
+### Desde Swagger
+
+1. Abrir `http://localhost:8000/api/docs`
+2. Login con `POST /api/v1/auth/login` y copiar el token
+3. Click en **Authorize** y pegar el token
+4. Ejecutar `POST /api/v1/admin/backup`
+5. Ejecutar `GET /api/v1/admin/backups` para ver la lista
+
+---
+
+## Tema 3: Transacciones ACID
+
+### Concepto
+
+MongoDB soporta transacciones multi-documento desde la versión 4.0. Para operaciones de un solo documento, MongoDB ya es atómico por defecto sin necesidad de transacción explícita.
+
+| Propiedad | Significado | En MongoDB |
+|---|---|---|
+| Atomicidad | Todo o nada | Multi-document transactions |
+| Consistencia | Estado válido a válido | Validators + transacciones |
+| Isolation | Transacciones aisladas | Snapshot isolation |
+| Durabilidad | Lo commiteado persiste | Write concern majority |
+
+### Caso de uso implementado
+
+El endpoint `POST /api/v1/pdf/upload-audited` realiza dos operaciones en una transacción atómica:
+
+1. Insertar el documento PDF en la colección `documents`
+2. Registrar el evento en la colección `audit_log`
+
+Si cualquiera de las dos falla, **ambas se revierten**.
+
+### Cómo probar
+
+**Prueba 1 — Flujo normal:**
+
+1. Autenticarse en Swagger
+2. Ejecutar `POST /api/v1/pdf/upload-audited` con un archivo PDF
+3. Verificar que el documento se creó:
+
+```bash
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').documents.find({},{filename:1,_id:0}).pretty()"
+```
+
+4. Verificar que el audit log se creó:
+
+```bash
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').audit_log.find().pretty()"
+
+# Resultado esperado:
+# {
+#   action: 'upload',
+#   document_id: '...',
+#   filename: 'archivo.pdf',
+#   timestamp: ISODate('...')
+# }
+```
+
+**Prueba 2 — Demostrar rollback (atomicidad):**
+
+Agregar temporalmente en `app/services/document_service.py` dentro de `upload_pdf_with_audit`, después del primer insert:
+
+```python
+async with mongo_db.start_transaction() as tx_session:
+    result = await mongo_db.get_database()["documents"].insert_one(
+        create_data, session=tx_session
+    )
+    # DEMO: forzar error para mostrar rollback
+    raise Exception("Error simulado para demostrar rollback")
+```
+
+Luego:
+
+```bash
+docker compose restart app
+```
+
+1. Ejecutar `POST /api/v1/pdf/upload-audited` — debe devolver error 500
+2. Verificar que el documento NO quedó en la DB:
+
+```bash
+docker compose exec mongodb mongosh --eval \
+  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
+# El conteo NO aumentó — rollback exitoso
+```
+
+3. Quitar el `raise Exception` y reiniciar para restaurar el funcionamiento normal
+
+---
+
+## Tema 4: Seguridad
+
+### Capas implementadas
+
+| Capa | Implementación | Protege contra |
+|---|---|---|
+| Transporte | HTTPS/TLS en producción | Intercepción de tráfico |
+| Autenticación | JWT HS256, expiración 30 min | Acceso no autorizado |
+| Contraseñas | pbkdf2_sha256 con salt | Fuerza bruta offline |
+| Configuración | `.env` nunca commiteado | Exposición de secretos |
+| Validación | Pydantic + Motor ODM | Inyección NoSQL |
+
+### Cómo probar
+
+**Sin token debe dar 401:**
+
+```bash
+curl http://localhost:8000/api/v1/pdf/
+# {"detail": "Not authenticated"}
+```
+
+**Con token debe dar 200:**
+
+```bash
+# Obtener token
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "usuario", "password": "mipassword123"}'
+  -d '{"identifier": "admin", "password": "admin123"}'
+
+# Usar el token
+curl http://localhost:8000/api/v1/pdf/ \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**SECRET_KEY inválida impide arrancar:**
+
+```bash
+# Cambiar en .env: SECRET_KEY=change-me-in-production
+docker compose restart app
+docker compose logs app --tail=5
+# La app falla en startup con error de validación
 ```
 
 ---
 
-## 🧪 Ejecutar tests
+## Checklist de verificación
 
-### Unit tests
+Usar este checklist para validar que todos los temas funcionan correctamente.
 
-No requieren MongoDB ni ningún servicio externo:
+### Infraestructura
 
-```bash
-pytest tests/ -v --ignore=tests/integration/db
-```
+- [ ] `docker compose ps` muestra ambos containers en estado `Up`
+- [ ] `docker compose logs app --tail=5` muestra `Successfully connected to MongoDB`
+- [ ] `http://localhost:8000/health` devuelve `{"status": "healthy"}`
+- [ ] `http://localhost:8000/api/docs` carga el Swagger UI
 
-Resultado esperado: **99 passed**
+### Seguridad
 
-### Integration tests
+- [ ] `GET /api/v1/pdf/` sin token devuelve 401
+- [ ] `POST /api/v1/auth/login` con credenciales correctas devuelve token JWT
+- [ ] `GET /api/v1/pdf/` con token devuelve 200
 
-Requieren MongoDB corriendo:
+### Índices
 
-```bash
-pytest tests/integration/db/ -v
-```
+- [ ] `db.documents.getIndexes()` muestra `idx_docs_checksum_unique`
+- [ ] `db.users.getIndexes()` muestra `idx_users_email_unique`
+- [ ] `python scripts/demo_indexes.py` muestra `IXSCAN` en todas las queries
+
+### Backup & Restore
+
+- [ ] `python scripts/backup.py` genera carpeta en `backups/`
+- [ ] `deleteMany({})` vacía la colección
+- [ ] `python scripts/restore.py` restaura los documentos
+- [ ] `countDocuments()` vuelve al número original
+
+### Transacciones
+
+- [ ] `POST /api/v1/pdf/upload-audited` crea documento y registro en `audit_log`
+- [ ] `db.audit_log.find()` muestra el registro con `action: 'upload'`
+- [ ] Con `raise Exception` forzado, el documento NO queda en la DB (rollback)
 
 ---
 
-## 📁 Estructura del proyecto
+## Estructura del proyecto
 
 ```
 pdf_extractext/
 ├── app/
-│   ├── api/
-│   │   └── v1/
-│   │       ├── endpoints/
-│   │       │   ├── auth.py           # POST /auth/login, GET /auth/me
-│   │       │   ├── health.py         # GET /health
-│   │       │   ├── pdf.py            # POST /pdf/upload
-│   │       │   └── users.py          # CRUD /users
-│   │       └── router.py
-│   ├── core/
-│   │   ├── config.py                 # Variables de entorno (Pydantic Settings)
-│   │   ├── exceptions.py             # Excepciones de la aplicación
-│   │   ├── security.py               # Lógica JWT
-│   │   └── logging/                  # Logging centralizado con JSON
-│   ├── db/
-│   │   └── database.py               # Conexión MongoDB con Motor
-│   ├── models/
-│   │   ├── user.py                   # Modelo de usuario
-│   │   └── role.py                   # Modelo de rol
-│   ├── repositories/
-│   │   ├── document_repo.py          # Acceso a datos de documentos
-│   │   ├── user_repository.py        # Acceso a datos de usuarios
-│   │   └── role_repository.py        # Acceso a datos de roles
+│   ├── main.py
+│   ├── api/v1/
+│   │   ├── router.py
+│   │   └── endpoints/
+│   │       ├── auth.py
+│   │       ├── pdf.py
+│   │       ├── users.py
+│   │       ├── admin.py          # Backup & Restore endpoints
+│   │       └── health.py
 │   ├── services/
-│   │   ├── pdf_service.py            # Extracción de texto + checksum SHA-256
-│   │   ├── auth_service.py           # Autenticación JWT
-│   │   ├── health_service.py         # Estado del sistema
-│   │   └── user_service.py           # Lógica de negocio de usuarios
-│   ├── schemas/
-│   │   ├── document.py               # Schema de respuesta PDF
-│   │   ├── user.py                   # Schemas de usuario
-│   │   ├── auth.py                   # Schemas de autenticación
-│   │   ├── health.py                 # Schema de health check
-│   │   └── role.py                   # Schema de roles
-│   └── main.py                       # Entry point — factory de la aplicación
+│   │   ├── document_service.py   # upload_pdf_with_audit (transacciones)
+│   │   ├── pdf_service.py
+│   │   └── auth_service.py
+│   ├── repositories/
+│   │   ├── document_repo.py
+│   │   ├── audit_repository.py   # Audit log
+│   │   └── user_repository.py
+│   ├── core/
+│   │   ├── config.py             # SECRET_KEY validator
+│   │   └── security.py
+│   └── db/
+│       └── database.py           # start_transaction()
 ├── migrations/
-│   ├── versions/                     # Migraciones versionadas
-│   ├── runner.py                     # Ejecutor de migraciones
-│   ├── registry.py                   # Registro de migraciones aplicadas
-│   └── cli.py                        # CLI para gestión de migraciones
-├── tests/
-│   ├── api/v1/                       # Tests de endpoints HTTP
-│   ├── services/                     # Tests de servicios
-│   ├── integration/
-│   │   ├── core/                     # Tests de middleware y logging
-│   │   ├── db/                       # Tests de conexión MongoDB (requiere DB)
-│   │   └── test_auth_login_flow.py   # Test end-to-end de autenticación
-│   ├── unit/core/                    # Tests unitarios de logging
-│   └── conftest.py                   # Fixtures compartidos
-├── Dockerfile
+│   └── versions/
+│       ├── 001_create_indexes.py
+│       ├── 007_add_security_indexes.py   # Índices únicos y parciales
+│       └── 008_add_audit_log.py          # Colección audit_log
+├── scripts/
+│   ├── backup.py                 # Script de backup
+│   ├── restore.py                # Script de restore
+│   └── demo_indexes.py           # Demo explain() para la defensa
+├── backups/                      # Backups generados (en .gitignore)
 ├── docker-compose.yml
-├── .env.example
+├── Dockerfile
 └── pyproject.toml
 ```
-
----
-
-## 🔌 Endpoints disponibles
-
-### PDF
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `POST` | `/api/v1/pdf/upload` | Sube un PDF, extrae texto y persiste con checksum |
-
-### Health
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET` | `/api/v1/health/` | Estado general del sistema y MongoDB |
-| `GET` | `/api/v1/health/ready` | Readiness probe |
-| `GET` | `/api/v1/health/live` | Liveness probe |
-
-### Auth
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `POST` | `/api/v1/auth/login` | Login con credenciales → JWT token |
-| `GET` | `/api/v1/auth/me` | Datos del usuario autenticado |
-
-### Usuarios
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `POST` | `/api/v1/users/` | Crear usuario |
-| `GET` | `/api/v1/users/` | Listar usuarios |
-| `GET` | `/api/v1/users/{id}` | Obtener usuario por ID |
-| `PUT` | `/api/v1/users/{id}` | Actualizar usuario |
-| `DELETE` | `/api/v1/users/{id}` | Eliminar usuario |
-
----
-
-## ⚙️ Variables de entorno
-
-| Variable | Descripción | Default |
-|----------|-------------|---------|
-| `APP_NAME` | Nombre de la aplicación | `PDF Extract API` |
-| `APP_VERSION` | Versión | `1.0.0` |
-| `DEBUG` | Habilita Swagger UI en `/api/docs` | `False` |
-| `ENVIRONMENT` | Entorno (`development`, `production`) | `development` |
-| `MONGODB_URL` | URL de conexión MongoDB | `mongodb://localhost:27017` |
-| `MONGODB_DB_NAME` | Nombre de la base de datos | `pdf_extract_db` |
-| `SECRET_KEY` | Clave para firmar tokens JWT | — |
-| `LOG_LEVEL` | Nivel de logging (`DEBUG`, `INFO`, `ERROR`) | `INFO` |
-| `MAX_UPLOAD_SIZE` | Tamaño máximo de PDF en bytes | `52428800` (50MB) |
-
----
-
-## 🐳 Comandos Docker útiles
-
-```bash
-# Levantar en segundo plano
-docker compose up -d
-
-# Ver logs en tiempo real
-docker compose logs -f
-
-# Ver logs solo de la app
-docker compose logs -f app
-
-# Detener los servicios
-docker compose down
-
-# Detener y eliminar datos de MongoDB
-docker compose down -v
-
-# Reconstruir la imagen tras cambios en el código
-docker compose up --build
-```
-
----
-
-## 🧱 Principios aplicados
-
-- **TDD** — cada feature fue implementada con ciclo Red → Green → Refactor
-- **12-Factor App** — configuración por variables de entorno, logs como streams, port binding, stateless
-- **Clean Architecture** — separación estricta en capas: api / services / repositories
-- **SOLID** — responsabilidad única, inversión de dependencias, inyección via `Depends()`
-- **KISS / DRY / YAGNI** — sin abstracciones innecesarias, sin código duplicado
-- **SHA-256 checksum** — integridad del archivo y detección de duplicados
-- **JWT Auth** — autenticación stateless con tokens firmados
