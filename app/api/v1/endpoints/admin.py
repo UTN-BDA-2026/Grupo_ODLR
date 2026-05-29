@@ -7,9 +7,9 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from app.api.v1.endpoints.auth import get_current_user
+from app.core.security import get_current_user
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(tags=["admin"])
 
 CONTAINER_NAME = "grupo_odlr-mongodb-1"
 DB_NAME = "pdf_extract_db"
