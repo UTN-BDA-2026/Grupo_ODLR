@@ -35,8 +35,7 @@ API REST para extracción de texto desde archivos PDF, construida con FastAPI y 
 ### Paso 1 — Clonar el repositorio
 
 ```bash
-git clone https://github.com/juandelosrios124/pdf_extractext.git
-cd pdf_extractext
+git clone https://github.com/UTN-BDA-2026/Grupo_ODLR
 ```
 
 ### Paso 2 — Crear el archivo `.env`
