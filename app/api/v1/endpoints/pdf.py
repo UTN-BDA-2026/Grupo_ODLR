@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.api.v1.endpoints.auth import get_current_user
 from app.core.config import settings
 from app.core.exceptions import ConflictException, NotFoundException
 from app.db.database import get_db_session
@@ -18,6 +19,7 @@ router = APIRouter()
 async def upload_pdf(
     file: UploadFile = File(...),
     session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(get_current_user),
 ):
     if not file.filename.endswith(".pdf") or file.content_type != "application/pdf":
         raise HTTPException(
@@ -50,6 +52,7 @@ async def list_documents(
     skip: int = 0,
     limit: int = 100,
     session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(get_current_user),
 ):
     return await document_service.list_documents(session, skip=skip, limit=limit)
 
@@ -58,6 +61,7 @@ async def list_documents(
 async def get_document(
     document_id: str,
     session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(get_current_user),
 ):
     try:
         return await document_service.get_document_by_id(session, document_id)
@@ -70,6 +74,7 @@ async def update_document(
     document_id: str,
     data: DocumentUpdate,
     session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(get_current_user),
 ):
     try:
         return await document_service.update_document(session, document_id, data)
@@ -81,11 +86,13 @@ async def update_document(
 async def delete_document(
     document_id: str,
     session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(get_current_user),
 ):
     try:
         await document_service.delete_document(session, document_id)
     except NotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
 
 @router.post("/upload-audited", response_model=DocumentResponse)
 async def upload_pdf_audited(
