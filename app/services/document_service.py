@@ -105,6 +105,7 @@ class DocumentService:
                 create_data, session=tx_session
             )
 
+
             # Operación 2: registrar auditoría
             # Si esta línea falla → la Operación 1 también se revierte
             audit_repo = AuditRepository(session)
