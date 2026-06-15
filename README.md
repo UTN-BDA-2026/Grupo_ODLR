@@ -1,6 +1,6 @@
 # pdf_extractext
 
-API REST para extracción de texto desde archivos PDF, construida con FastAPI y MongoDB.
+API REST para extracción de texto y resumen inteligente de archivos PDF, construida con FastAPI y MongoDB.
 
 ## Stack tecnológico
 
@@ -11,6 +11,7 @@ API REST para extracción de texto desde archivos PDF, construida con FastAPI y 
 | Driver async | Motor + Beanie |
 | Autenticación | JWT (PyJWT) + pbkdf2_sha256 |
 | Extracción PDF | PyMuPDF (fitz) |
+| IA / Resumen | Ollama (llama3.2:3b) |
 | Contenedores | Docker + Docker Compose |
 | Migraciones | Sistema custom con lock distribuido |
 
@@ -20,6 +21,7 @@ API REST para extracción de texto desde archivos PDF, construida con FastAPI y 
 - **Índices** — B-Tree en MongoDB, unique, compuesto, parcial, sparse
 - **Backup & Restore** — mongodump/mongorestore, scripts Python, endpoint REST
 - **Transacciones** — ACID multi-documento con audit log atómico
+- **Inteligencia Artificial** — Resumen automático de PDFs con LLM local (Ollama)
 
 ---
 
@@ -51,6 +53,8 @@ Editar `.env` y configurar al menos estas variables:
 MONGODB_URL=mongodb://mongodb:27017
 MONGODB_DB_NAME=pdf_extract_db
 SECRET_KEY=<clave-aleatoria-de-al-menos-32-caracteres>
+OLLAMA_URL=http://ollama:11434
+OLLAMA_MODEL=llama3.2:3b
 ```
 
 Generar una `SECRET_KEY` segura:
@@ -66,14 +70,23 @@ docker compose up -d
 docker compose ps
 ```
 
-Ambos containers deben aparecer en estado `Up`:
+Los tres containers deben aparecer en estado `Up`:
 
 ```
 grupo_odlr-app-1       ...   Up   0.0.0.0:8000->8000/tcp
 grupo_odlr-mongodb-1   ...   Up   0.0.0.0:27017->27017/tcp
+grupo_odlr-ollama-1    ...   Up   0.0.0.0:11434->11434/tcp
 ```
 
-### Paso 4 — Aplicar las migraciones
+### Paso 4 — Descargar el modelo de IA (solo la primera vez)
+
+```bash
+docker exec grupo_odlr-ollama-1 ollama pull llama3.2:3b
+```
+
+Esto descarga ~2GB. Solo es necesario hacerlo una vez; el modelo queda guardado en el volumen `ollama_data`.
+
+### Paso 5 — Aplicar las migraciones
 
 Las migraciones se ejecutan desde fuera del container, por lo que necesitás que `MONGODB_URL` apunte a `localhost` temporalmente:
 
@@ -93,7 +106,7 @@ Después volver a dejar `MONGODB_URL=mongodb://mongodb:27017` y reiniciar:
 docker compose restart app
 ```
 
-### Paso 5 — Crear un usuario inicial
+### Paso 6 — Crear un usuario inicial
 
 Abrir el Swagger en `http://localhost:8000/api/docs` y ejecutar `POST /api/v1/users/`:
 
@@ -105,7 +118,7 @@ Abrir el Swagger en `http://localhost:8000/api/docs` y ejecutar `POST /api/v1/us
 }
 ```
 
-### Paso 6 — Verificar que todo funciona
+### Paso 7 — Verificar que todo funciona
 
 ```bash
 curl http://localhost:8000/health
@@ -127,6 +140,7 @@ curl http://localhost:8000/health
 | GET | `/api/v1/pdf/{id}` | Sí | Obtener documento |
 | PUT | `/api/v1/pdf/{id}` | Sí | Actualizar documento |
 | DELETE | `/api/v1/pdf/{id}` | Sí | Eliminar documento |
+| POST | `/api/v1/pdf/{id}/summary` | Sí | Generar resumen con IA |
 | POST | `/api/v1/admin/backup` | Sí | Triggear backup manual |
 | GET | `/api/v1/admin/backups` | Sí | Listar backups disponibles |
 | GET | `/api/v1/health/` | No | Health check |
@@ -213,55 +227,27 @@ Un sistema de backup profesional cubre frecuencia, retención, verificación y r
 
 ### Cómo probar el ciclo completo
 
-**1. Verificar que hay documentos:**
-
 ```bash
+# 1. Verificar que hay documentos
 docker compose exec mongodb mongosh --eval \
   "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
-# Debe mostrar un número > 0
-```
 
-**2. Hacer el backup:**
-
-```bash
+# 2. Hacer el backup
 python scripts/backup.py
 
-# Resultado esperado:
-# Iniciando backup: 20260528_123456
-# Base de datos: pdf_extract_db
-# Backup completado: backups\20260528_123456/
-```
-
-**3. Simular pérdida de datos:**
-
-```bash
+# 3. Simular pérdida de datos
 docker compose exec mongodb mongosh --eval \
   "db.getSiblingDB('pdf_extract_db').documents.deleteMany({})"
-# Resultado: { acknowledged: true, deletedCount: N }
-```
 
-**4. Verificar que la DB está vacía:**
-
-```bash
+# 4. Verificar que la DB está vacía
 docker compose exec mongodb mongosh --eval \
   "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
 # Debe mostrar: 0
-```
 
-**5. Restaurar:**
-
-```bash
+# 5. Restaurar
 python scripts/restore.py
-# Usa el backup más reciente automáticamente
-# Confirmar con: s
 
-# O restaurar uno específico:
-python scripts/restore.py 20260528_123456
-```
-
-**6. Verificar que los datos volvieron:**
-
-```bash
+# 6. Verificar que los datos volvieron
 docker compose exec mongodb mongosh --eval \
   "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
 # Debe mostrar el número original
@@ -281,7 +267,7 @@ docker compose exec mongodb mongosh --eval \
 
 ### Concepto
 
-MongoDB soporta transacciones multi-documento desde la versión 4.0. Para operaciones de un solo documento, MongoDB ya es atómico por defecto sin necesidad de transacción explícita.
+MongoDB soporta transacciones multi-documento desde la versión 4.0. Requiere replica set, configurado en este proyecto como `rs0` de un nodo.
 
 | Propiedad | Significado | En MongoDB |
 |---|---|---|
@@ -317,45 +303,17 @@ docker compose exec mongodb mongosh --eval \
 ```bash
 docker compose exec mongodb mongosh --eval \
   "db.getSiblingDB('pdf_extract_db').audit_log.find().pretty()"
-
-# Resultado esperado:
-# {
-#   action: 'upload',
-#   document_id: '...',
-#   filename: 'archivo.pdf',
-#   timestamp: ISODate('...')
-# }
 ```
 
 **Prueba 2 — Demostrar rollback (atomicidad):**
 
-Agregar temporalmente en `app/services/document_service.py` dentro de `upload_pdf_with_audit`, después del primer insert:
+Agregar temporalmente en `upload_pdf_with_audit` después del primer insert:
 
 ```python
-async with mongo_db.start_transaction() as tx_session:
-    result = await mongo_db.get_database()["documents"].insert_one(
-        create_data, session=tx_session
-    )
-    # DEMO: forzar error para mostrar rollback
-    raise Exception("Error simulado para demostrar rollback")
+raise Exception("Error simulado para demostrar rollback")
 ```
 
-Luego:
-
-```bash
-docker compose restart app
-```
-
-1. Ejecutar `POST /api/v1/pdf/upload-audited` — debe devolver error 500
-2. Verificar que el documento NO quedó en la DB:
-
-```bash
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
-# El conteo NO aumentó — rollback exitoso
-```
-
-3. Quitar el `raise Exception` y reiniciar para restaurar el funcionamiento normal
+Luego reiniciar y ejecutar `POST /api/v1/pdf/upload-audited` — debe devolver error 500 y el documento NO debe quedar en la DB.
 
 ---
 
@@ -404,13 +362,63 @@ docker compose logs app --tail=5
 
 ---
 
-## Checklist de verificación
+## Tema 5: Inteligencia Artificial — Resumen de PDFs
 
-Usar este checklist para validar que todos los temas funcionan correctamente.
+### Concepto
+
+El proyecto integra [Ollama](https://ollama.com/) como motor de inferencia local, usando el modelo **llama3.2:3b**. Toda la inferencia ocurre dentro del entorno Docker, sin enviar datos a servicios externos — lo que garantiza privacidad total del contenido de los PDFs.
+
+### Arquitectura
+
+```
+Cliente → POST /api/v1/pdf/{id}/summary
+              ↓
+         Verifica JWT
+              ↓
+         Busca documento en MongoDB
+              ↓
+         OllamaService.summarize(text)
+              ↓
+         POST http://ollama:11434/api/generate
+              ↓
+         Devuelve JSON con resumen
+```
+
+### Modelo utilizado
+
+| Parámetro | Valor |
+|---|---|
+| Modelo | llama3.2:3b |
+| Tamaño | ~2GB |
+| Inferencia | CPU (sin GPU requerida) |
+| Timeout | 300 segundos |
+| Contexto máximo | 3000 caracteres de texto fuente |
+
+### Cómo probar
+
+1. Autenticarse en Swagger (`POST /api/v1/auth/login`)
+2. Subir un PDF (`POST /api/v1/pdf/upload`)
+3. Copiar el `id` del documento devuelto
+4. Ejecutar `POST /api/v1/pdf/{id}/summary`
+
+Respuesta esperada:
+
+```json
+{
+  "document_id": "6a0dc3eb605a2fbb0c5546c1",
+  "summary": "El documento trata sobre..."
+}
+```
+
+> **Nota:** la primera inferencia puede tardar 1-2 minutos mientras Ollama carga el modelo en RAM. Las siguientes son significativamente más rápidas.
+
+---
+
+## Checklist de verificación
 
 ### Infraestructura
 
-- [ ] `docker compose ps` muestra ambos containers en estado `Up`
+- [ ] `docker compose ps` muestra los tres containers en estado `Up`
 - [ ] `docker compose logs app --tail=5` muestra `Successfully connected to MongoDB`
 - [ ] `http://localhost:8000/health` devuelve `{"status": "healthy"}`
 - [ ] `http://localhost:8000/api/docs` carga el Swagger UI
@@ -440,6 +448,12 @@ Usar este checklist para validar que todos los temas funcionan correctamente.
 - [ ] `db.audit_log.find()` muestra el registro con `action: 'upload'`
 - [ ] Con `raise Exception` forzado, el documento NO queda en la DB (rollback)
 
+### Inteligencia Artificial
+
+- [ ] `docker exec grupo_odlr-ollama-1 ollama list` muestra `llama3.2:3b`
+- [ ] `POST /api/v1/pdf/{id}/summary` devuelve un resumen en español
+- [ ] El resumen se genera correctamente para distintos tipos de PDF
+
 ---
 
 ## Estructura del proyecto
@@ -452,12 +466,13 @@ pdf_extractext/
 │   │   ├── router.py
 │   │   └── endpoints/
 │   │       ├── auth.py
-│   │       ├── pdf.py
+│   │       ├── pdf.py            # CRUD + /summary
 │   │       ├── users.py
 │   │       ├── admin.py          # Backup & Restore endpoints
 │   │       └── health.py
 │   ├── services/
 │   │   ├── document_service.py   # upload_pdf_with_audit (transacciones)
+│   │   ├── ollama_service.py     # Integración con Ollama
 │   │   ├── pdf_service.py
 │   │   └── auth_service.py
 │   ├── repositories/
@@ -465,7 +480,7 @@ pdf_extractext/
 │   │   ├── audit_repository.py   # Audit log
 │   │   └── user_repository.py
 │   ├── core/
-│   │   ├── config.py             # SECRET_KEY validator
+│   │   ├── config.py             # SECRET_KEY validator + OLLAMA settings
 │   │   └── security.py
 │   └── db/
 │       └── database.py           # start_transaction()
