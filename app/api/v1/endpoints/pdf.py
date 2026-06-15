@@ -1,4 +1,4 @@
-# app/api/v1/endpoints/pdf.py
+﻿# app/api/v1/endpoints/pdf.py
 
 from typing import List
 
@@ -11,6 +11,7 @@ from app.core.exceptions import ConflictException, NotFoundException
 from app.db.database import get_db_session
 from app.schemas.document import DocumentResponse, DocumentUpdate
 from app.services.document_service import document_service
+from app.services.ollama_service import ollama_service
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ async def upload_pdf(
     if not file.filename.endswith(".pdf") or file.content_type != "application/pdf":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo debe ser un PDF válido",
+            detail="El archivo debe ser un PDF vÃ¡lido",
         )
 
     pdf_bytes = await file.read()
@@ -32,7 +33,7 @@ async def upload_pdf(
     if len(pdf_bytes) > settings.MAX_UPLOAD_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=f"El archivo supera el tamaño máximo de "
+            detail=f"El archivo supera el tamaÃ±o mÃ¡ximo de "
                    f"{settings.MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
         )
 
@@ -43,7 +44,7 @@ async def upload_pdf(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El contenido del archivo no es un PDF válido",
+            detail="El contenido del archivo no es un PDF vÃ¡lido",
         )
 
 
@@ -103,9 +104,9 @@ async def upload_pdf_audited(
     """
     Sube un PDF con registro de auditoría transaccional.
 
-    Usa una transacción MongoDB para garantizar que el documento
-    y su log de auditoría se crean atómicamente.
-    Si cualquiera falla, ambos se revierten (rollback automático).
+    Usa una transaccion MongoDB para garantizar que el documento
+    y su log de auditori­a se crean automaticamente.
+    Si cualquiera falla, ambos se revierten (rollback automÃ¡tico).
     """
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF.")
@@ -113,6 +114,31 @@ async def upload_pdf_audited(
     file_bytes = await file.read()
 
     if not file_bytes.startswith(b"%PDF-"):
-        raise HTTPException(status_code=400, detail="El archivo no es un PDF válido.")
+        raise HTTPException(status_code=400, detail="El archivo no es un PDF vÃ¡lido.")
 
     return await document_service.upload_pdf_with_audit(session, file_bytes, file.filename)
+
+@router.post("/{document_id}/summary")
+async def summarize_pdf(
+    document_id: str,
+    session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    """Genera un resumen del PDF usando Ollama (llama3.2:3b)."""
+    # 1. Buscar el documento
+    try:
+        doc = await document_service.get_document_by_id(session, document_id)
+    except NotFoundException:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    # 2. Verificar que tenga texto extraido
+    if not doc.text:
+        raise HTTPException(status_code=400, detail="El documento no tiene texto extraido")
+
+    # 3. Llamar a Ollama
+    try:
+        summary = await ollama_service.summarize(doc.text)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Ollama no disponible: {str(e)}")
+
+    return {"document_id": document_id, "summary": summary}

@@ -46,5 +46,7 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_HOSTS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
+    OLLAMA_URL: str = "http://ollama:11434"
+    OLLAMA_MODEL: str = "llama3.2:3b"
 
 settings = Settings()

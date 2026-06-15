@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.interfaces.repository import RepositoryInterface
 from app.models.document import DocumentCreateDocument, DocumentDocument, DocumentUpdateDocument
+from bson import ObjectId
 
 
 class DocumentRepository(
@@ -92,3 +93,12 @@ class DocumentRepository(
 
     async def find_by_checksum(self, checksum: str) -> Optional[DocumentDocument]:
         return self._to_model(await self.collection.find_one({"checksum": checksum}))
+    
+    async def find_by_id(self, document_id: str) -> dict | None:
+        return await self.collection.find_one({"_id": ObjectId(document_id)})
+
+    async def update_summary(self, document_id: str, summary: str) -> None:
+        await self.collection.update_one(
+            {"_id": ObjectId(document_id)},
+            {"$set": {"summary": summary}}
+        )
