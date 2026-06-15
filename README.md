@@ -170,8 +170,7 @@ Un índice en MongoDB es una estructura B-Tree que permite resolver queries sin 
 **Verificar que los índices existen:**
 
 ```bash
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').documents.getIndexes().forEach(i => print(i.name))"
+docker exec grupo_odlr-mongodb-1 mongosh pdf_extract_db --eval "db.documents.getIndexes().forEach(function(i) { print(i.name) })"
 ```
 
 Resultado esperado:
@@ -229,27 +228,22 @@ Un sistema de backup profesional cubre frecuencia, retención, verificación y r
 
 ```bash
 # 1. Verificar que hay documentos
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
+docker exec grupo_odlr-mongodb-1 mongosh pdf_extract_db --eval "db.documents.countDocuments()"
 
 # 2. Hacer el backup
 python scripts/backup.py
 
 # 3. Simular pérdida de datos
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').documents.deleteMany({})"
+docker exec grupo_odlr-mongodb-1 mongosh pdf_extract_db --eval "db.documents.deleteMany({})"
 
 # 4. Verificar que la DB está vacía
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
-# Debe mostrar: 0
+docker exec grupo_odlr-mongodb-1 mongosh pdf_extract_db --eval "db.documents.countDocuments()"
 
 # 5. Restaurar
 python scripts/restore.py
 
 # 6. Verificar que los datos volvieron
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').documents.countDocuments()"
+docker exec grupo_odlr-mongodb-1 mongosh pdf_extract_db --eval "db.documents.countDocuments()"
 # Debe mostrar el número original
 ```
 
@@ -294,15 +288,13 @@ Si cualquiera de las dos falla, **ambas se revierten**.
 3. Verificar que el documento se creó:
 
 ```bash
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').documents.find({},{filename:1,_id:0}).pretty()"
+docker exec grupo_odlr-mongodb-1 mongosh pdf_extract_db --eval "db.documents.find({},{filename:1,_id:0}).pretty()"
 ```
 
 4. Verificar que el audit log se creó:
 
 ```bash
-docker compose exec mongodb mongosh --eval \
-  "db.getSiblingDB('pdf_extract_db').audit_log.find().pretty()"
+docker exec grupo_odlr-mongodb-1 mongosh pdf_extract_db --eval "db.audit_log.find().pretty()"
 ```
 
 **Prueba 2 — Demostrar rollback (atomicidad):**
