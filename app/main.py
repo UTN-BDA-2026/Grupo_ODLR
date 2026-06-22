@@ -81,6 +81,7 @@ def create_application() -> FastAPI:
     return application
 
 
+
 app = create_application()
 
 
@@ -89,3 +90,7 @@ async def health_check():
     """Health check endpoint."""
     logger.debug("Health check requested")
     return {"status": "healthy", "version": settings.APP_VERSION}
+
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

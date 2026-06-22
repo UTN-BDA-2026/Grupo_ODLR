@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pdf_extractext — Login</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:      #0F0F13;
+      --bg-surface:   #18181F;
+      --bg-elevated:  #22222C;
+      --border:       #2E2E3A;
+      --text-primary: #F0EDE6;
+      --text-secondary: #9B97A8;
+      --text-muted:   #5C5870;
+      --accent:       #6B5EFF;
+      --accent-hover: #5A4EE0;
+      --success-bg:   #0D2B1F;
+      --success-text: #4ADE80;
+      --error-bg:     #2B0D0D;
+      --error-text:   #F87171;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg-base);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      color: var(--text-primary);
+    }
+
+    .app-shell {
+      display: flex;
+      width: 680px;
+      min-height: 460px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      background: var(--accent);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-logo i { font-size: 20px; }
+
+    .sidebar-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .sidebar-features li {
+      font-size: 12px;
+      color: rgba(255,255,255,0.75);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-features li i { font-size: 15px; color: rgba(255,255,255,0.9); }
+
+    .sidebar-footer { font-size: 11px; color: rgba(255,255,255,0.4); }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .login-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem 2rem 1.25rem;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .card-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    .field { margin-bottom: 1rem; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    input[type=text], input[type=password] {
+      width: 100%;
+      height: 38px;
+      padding: 0 12px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(107,94,255,0.18);
+    }
+
+    .btn-primary {
+      width: 100%;
+      height: 40px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Progress bar */
+    .progress-wrap {
+      height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 0.75rem;
+      display: none;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.1s linear;
+    }
+
+    /* Alerts */
+    .alert {
+      font-size: 12px;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-top: 0.75rem;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+    .alert.visible { display: flex; }
+    .alert-error  { background: var(--error-bg);   color: var(--error-text); }
+    .alert-success{ background: var(--success-bg); color: var(--success-text); }
+
+    /* Footer con URL */
+    .card-footer {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .url-input {
+      flex: 1;
+      min-width: 0;
+      height: 26px !important;
+      font-size: 11px !important;
+      font-family: monospace !important;
+      color: var(--text-muted) !important;
+      background: transparent !important;
+      border-color: transparent !important;
+      padding: 0 6px !important;
+    }
+
+    .url-input:focus {
+      background: var(--bg-surface) !important;
+      border-color: var(--accent) !important;
+      color: var(--text-primary) !important;
+      box-shadow: none !important;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <i class="ti ti-file-text"></i>
+      pdf_extractext
+    </div>
+    <ul class="sidebar-features">
+      <li><i class="ti ti-lock"></i> JWT auth seguro</li>
+      <li><i class="ti ti-file-upload"></i> Extracción de texto</li>
+      <li><i class="ti ti-brain"></i> Resumen con IA</li>
+      <li><i class="ti ti-database-backup"></i> Backup &amp; Restore</li>
+      <li><i class="ti ti-shield-check"></i> Transacciones ACID</li>
+    </ul>
+    <div class="sidebar-footer">UTN · BDA 2026</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="login-card">
+      <h1 class="card-title">Iniciar sesión</h1>
+      <p class="card-subtitle">Ingresá tus credenciales para continuar</p>
+
+      <div class="field">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" placeholder="admin" autocomplete="username" />
+      </div>
+
+      <div class="field">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+
+      <button class="btn-primary" id="btn-login">
+        <i class="ti ti-login"></i> Ingresar
+      </button>
+
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <div class="alert alert-error" id="error-msg">
+        <i class="ti ti-alert-circle"></i>
+        <span id="error-text">Credenciales incorrectas.</span>
+      </div>
+
+      <div class="alert alert-success" id="success-msg">
+        <i class="ti ti-check"></i>
+        <span>Sesión iniciada correctamente.</span>
+      </div>
+
+      <div class="card-footer">
+        <span class="footer-label">API</span>
+        <input type="text" class="url-input" id="api-url" value="http://localhost:8000" spellcheck="false" />
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const API_URL = () => document.getElementById('api-url').value.replace(/\/$/, '');
+
+  function animateProgress() {
+    const wrap = document.getElementById('progress-wrap');
+    const fill = document.getElementById('progress-fill');
+    wrap.classList.add('visible');
+    fill.style.width = '0%';
+    let pct = 0;
+    const iv = setInterval(() => {
+      pct += Math.random() * 12 + 4;
+      if (pct >= 90) { pct = 90; clearInterval(iv); }
+      fill.style.width = pct + '%';
+    }, 120);
+    return { fill, wrap };
+  }
+
+  function finishProgress({ fill, wrap }) {
+    fill.style.width = '100%';
+    setTimeout(() => { wrap.classList.remove('visible'); fill.style.width = '0%'; }, 400);
+  }
+
+  async function doLogin() {
+    const identifier = document.getElementById('username').value.trim();
+    const password   = document.getElementById('password').value;
+    const btn        = document.getElementById('btn-login');
+    const errEl      = document.getElementById('error-msg');
+    const errText    = document.getElementById('error-text');
+    const successEl  = document.getElementById('success-msg');
+
+    errEl.classList.remove('visible');
+    successEl.classList.remove('visible');
+
+    if (!identifier || !password) {
+      errText.textContent = 'Completá usuario y contraseña.';
+      errEl.classList.add('visible');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader-2"></i> Verificando...';
+    const prog = animateProgress();
+
+    try {
+      const res = await fetch(`${API_URL()}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password })
+      });
+
+      finishProgress(prog);
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        errText.textContent = data.detail || 'Credenciales incorrectas.';
+        errEl.classList.add('visible');
+      } else {
+        const data = await res.json();
+        localStorage.setItem('jwt_token', data.access_token || data.token);
+        localStorage.setItem('api_base', API_URL());
+        successEl.classList.add('visible');
+        btn.innerHTML = '<i class="ti ti-check"></i> Sesión iniciada';
+        // Redirigir al dashboard
+        setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
+      }
+    } catch (e) {
+      finishProgress(prog);
+      errText.textContent = 'No se pudo conectar con la API. ¿Está corriendo?';
+      errEl.classList.add('visible');
+    } finally {
+      if (btn.textContent.includes('Verificando')) {
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="ti ti-login"></i> Ingresar';
+        }, 2000);
+      }
+    }
+  }
+
+  document.getElementById('btn-login').addEventListener('click', doLogin);
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  // Si ya hay token, ir directo al dashboard
+  if (localStorage.getItem('jwt_token')) {
+    window.location.href = 'dashboard.html';
+  }
+</script>
+
+</body>
+</html>

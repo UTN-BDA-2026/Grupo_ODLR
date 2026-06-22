@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pdf_extractext — Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:       #0F0F13;
+      --bg-surface:    #18181F;
+      --bg-elevated:   #22222C;
+      --border:        #2E2E3A;
+      --text-primary:  #F0EDE6;
+      --text-secondary:#9B97A8;
+      --text-muted:    #5C5870;
+      --accent:        #6B5EFF;
+      --accent-hover:  #5A4EE0;
+      --success-bg:    #0D2B1F;
+      --success-text:  #4ADE80;
+      --warning-bg:    #2B1F0D;
+      --warning-text:  #FACC15;
+      --error-bg:      #2B0D0D;
+      --error-text:    #F87171;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
+
+    .shell {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 210px;
+      background: var(--accent);
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-logo i { font-size: 18px; }
+
+    .nav { display: flex; flex-direction: column; gap: 2px; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      text-decoration: none;
+      user-select: none;
+    }
+
+    .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 500; }
+    .nav-item i { font-size: 16px; }
+
+    .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+
+    .sidebar-user {
+      padding: 10px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 500; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .user-name  { font-size: 12px; color: rgba(255,255,255,0.85); font-weight: 500; }
+    .user-role  { font-size: 11px; color: rgba(255,255,255,0.45); }
+
+    .btn-logout {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      font-family: 'Inter', sans-serif;
+      transition: background 0.12s, color 0.12s;
+      width: 100%;
+    }
+
+    .btn-logout:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-surface);
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+
+    .topbar-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .topbar-actions { display: flex; gap: 8px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      height: 34px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; font-weight: 500; }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg-base); color: var(--text-primary); }
+
+    /* Stats */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 1.25rem 1.5rem 0;
+      flex-shrink: 0;
+    }
+
+    .stat-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+
+    .stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 500;
+      font-family: 'Space Grotesk', sans-serif;
+      color: var(--text-primary);
+    }
+    .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Progress bar */
+    .progress-wrap {
+      height: 2px;
+      background: var(--border);
+      overflow: hidden;
+      display: none;
+      margin: 1rem 1.5rem 0;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
+
+    /* Table */
+    .table-wrap {
+      flex: 1;
+      padding: 1.25rem 1.5rem 1.5rem;
+      overflow-y: auto;
+    }
+
+    .table-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table-title { font-size: 13px; font-weight: 500; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    th {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td {
+      padding: 10px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .file-cell { display: flex; align-items: center; gap: 10px; }
+
+    .file-icon {
+      width: 30px; height: 30px;
+      background: rgba(107,94,255,0.15);
+      color: var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .file-name { font-weight: 500; font-size: 13px; color: var(--text-primary); }
+    .file-id   { font-size: 11px; color: var(--text-muted); font-family: monospace; margin-top: 1px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .badge-done { background: var(--success-bg); color: var(--success-text); }
+    .badge-proc { background: var(--warning-bg); color: var(--warning-text); }
+    .badge-err  { background: var(--error-bg);   color: var(--error-text); }
+
+    .actions { display: flex; gap: 4px; }
+
+    .icon-btn {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 14px;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+
+    .icon-btn:hover { background: var(--bg-surface); color: var(--text-primary); }
+    .icon-btn.danger:hover { background: var(--error-bg); color: var(--error-text); border-color: var(--error-text); }
+    .icon-btn.ai:hover { background: rgba(107,94,255,0.15); color: var(--accent); border-color: var(--accent); }
+
+    .empty-state {
+      padding: 3rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .empty-state i { font-size: 36px; color: var(--text-muted); display: block; margin-bottom: 10px; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 100;
+      max-width: 320px;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: #4ADE80; color: var(--success-text); }
+    .toast.error   { border-color: #F87171; color: var(--error-text); }
+
+    /* Modal de detalle */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      width: 560px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .modal-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .modal-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: monospace; }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .modal-section-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .text-box {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <i class="ti ti-file-text" aria-hidden="true"></i>
+      pdf_extractext
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item active" href="dashboard.html">
+        <i class="ti ti-files" aria-hidden="true"></i> Mis PDFs
+      </a>
+      <a class="nav-item" href="upload.html">
+        <i class="ti ti-upload" aria-hidden="true"></i> Subir PDF
+      </a>
+      <a class="nav-item" href="backup.html">
+        <i class="ti ti-database-backup" aria-hidden="true"></i> Backup
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="avatar">?</div>
+        <div>
+          <div class="user-name" id="user-name">Cargando…</div>
+          <div class="user-role">usuario</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">
+        <i class="ti ti-logout" aria-hidden="true"></i> Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">Mis documentos</span>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" onclick="loadDocs()">
+          <i class="ti ti-refresh" aria-hidden="true"></i> Actualizar
+        </button>
+        <button class="btn btn-primary" onclick="window.location.href='upload.html'">
+          <i class="ti ti-plus" aria-hidden="true"></i> Subir PDF
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total documentos</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-sub">en tu cuenta</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Con resumen IA</div>
+        <div class="stat-value" id="stat-summarized">—</div>
+        <div class="stat-sub">procesados por Ollama</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Último backup</div>
+        <div class="stat-value" style="font-size:15px;padding-top:5px" id="stat-backup">—</div>
+        <div class="stat-sub">mongodump</div>
+      </div>
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">Documentos</span>
+          <span style="font-size:11px;color:var(--text-muted)" id="doc-count"></span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Archivo</th>
+              <th>Estado</th>
+              <th>Subido</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="doc-tbody">
+            <tr><td colspan="4">
+              <div class="empty-state">
+                <i class="ti ti-loader-2" aria-hidden="true"></i>
+                Cargando documentos…
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de detalle -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Documento</div>
+        <div class="modal-subtitle" id="modal-id"></div>
+      </div>
+      <button class="icon-btn" onclick="closeModalDirect()" style="flex-shrink:0">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalDirect()">Cerrar</button>
+      <button class="btn btn-primary" id="modal-summary-btn" style="display:none">
+        <i class="ti ti-brain" aria-hidden="true"></i> Generar resumen IA
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  const API    = () => localStorage.getItem('api_base') || 'http://localhost:8000';
+  const TOKEN  = () => localStorage.getItem('jwt_token');
+  const HEADERS = () => ({ 'Authorization': `Bearer ${TOKEN()}`, 'Content-Type': 'application/json' });
+
+  let currentDocId = null;
+
+  // ── Redirect si no hay token ──
+  if (!TOKEN()) window.location.href = 'index.html';
+
+  // ── Toast ──
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    const icon = type === 'success' ? 'ti-check' : 'ti-alert-circle';
+    t.innerHTML = `<i class="ti ${icon}" aria-hidden="true"></i> ${msg}`;
+    t.className = `toast ${type} show`;
+    setTimeout(() => { t.classList.remove('show'); }, 3000);
+  }
+
+  // ── Progress bar ──
+  function animProgress() {
+    const w = document.getElementById('progress-wrap');
+    const f = document.getElementById('progress-fill');
+    w.classList.add('visible'); f.style.width = '0%';
+    let p = 0;
+    const iv = setInterval(() => {
+      p += Math.random() * 12 + 4;
+      if (p >= 90) { p = 90; clearInterval(iv); }
+      f.style.width = p + '%';
+    }, 120);
+    return { f, w };
+  }
+
+  function endProgress({ f, w }) {
+    f.style.width = '100%';
+    setTimeout(() => { w.classList.remove('visible'); f.style.width = '0%'; }, 400);
+  }
+
+  // ── Helpers ──
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function initials(name) {
+    return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  function statusBadge(status) {
+    if (status === 'completed') return `<span class="badge badge-done"><i class="ti ti-check" aria-hidden="true"></i> Completado</span>`;
+    if (status === 'processing') return `<span class="badge badge-proc"><i class="ti ti-loader-2" aria-hidden="true"></i> Procesando</span>`;
+    return `<span class="badge badge-err"><i class="ti ti-x" aria-hidden="true"></i> Error</span>`;
+  }
+
+  // ── Cargar usuario ──
+  async function loadUser() {
+    try {
+      const res = await fetch(`${API()}/api/v1/auth/me`, { headers: HEADERS() });
+      if (res.status === 401) { logout(); return; }
+      if (res.ok) {
+        const u = await res.json();
+        const name = u.username || u.email || 'usuario';
+        document.getElementById('user-name').textContent = name;
+        document.getElementById('avatar').textContent = initials(name);
+      }
+    } catch {}
+  }
+
+  // ── Cargar documentos ──
+  async function loadDocs() {
+    const prog = animProgress();
+    try {
+      const res = await fetch(`${API()}/api/v1/pdf/`, { headers: HEADERS() });
+      endProgress(prog);
+      if (res.ok) {
+        const data = await res.json();
+        const docs = Array.isArray(data) ? data : (data.items || data.documents || []);
+        renderDocs(docs);
+      } else {
+        renderEmpty('No se pudo cargar la lista de documentos.');
+      }
+    } catch {
+      endProgress(prog);
+      renderEmpty('No se pudo conectar con la API.');
+    }
+  }
+
+  function renderDocs(docs) {
+    const tbody = document.getElementById('doc-tbody');
+    document.getElementById('doc-count').textContent = docs.length + ' documento' + (docs.length !== 1 ? 's' : '');
+    document.getElementById('stat-total').textContent = docs.length;
+    document.getElementById('stat-summarized').textContent = docs.filter(d => d.summary).length;
+
+    if (!docs.length) {
+      tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><i class="ti ti-file-off" aria-hidden="true"></i>No hay documentos todavía.<br>¡Subí tu primer PDF!</div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = docs.map(doc => {
+      const id = doc.id || doc._id || '';
+      return `
+        <tr>
+          <td>
+            <div class="file-cell">
+              <div class="file-icon"><i class="ti ti-file-type-pdf" aria-hidden="true"></i></div>
+              <div>
+                <div class="file-name">${escHtml(doc.filename || 'Sin nombre')}</div>
+                <div class="file-id">${id}</div>
+              </div>
+            </div>
+          </td>
+          <td>${statusBadge(doc.status || 'completed')}</td>
+          <td style="color:var(--text-secondary)">${formatDate(doc.created_at || doc.uploaded_at)}</td>
+          <td>
+            <div class="actions">
+              <button class="icon-btn" title="Ver detalle" onclick="openDetail('${id}')">
+                <i class="ti ti-eye" aria-hidden="true"></i>
+              </button>
+              <button class="icon-btn ai" title="Generar resumen con IA" onclick="openSummary('${id}', '${escHtml(doc.filename || '')}')">
+                <i class="ti ti-brain" aria-hidden="true"></i>
+              </button>
+              <button class="icon-btn danger" title="Eliminar" onclick="deleteDoc('${id}', '${escHtml(doc.filename || '')}')">
+                <i class="ti ti-trash" aria-hidden="true"></i>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderEmpty(msg) {
+    document.getElementById('doc-tbody').innerHTML = `<tr><td colspan="4"><div class="empty-state"><i class="ti ti-wifi-off" aria-hidden="true"></i>${msg}</div></td></tr>`;
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Backup info ──
+  async function loadBackupInfo() {
+    try {
+      const res = await fetch(`${API()}/api/v1/admin/backups`, { headers: HEADERS() });
+      if (res.ok) {
+        const data = await res.json();
+        const backups = Array.isArray(data) ? data : (data.backups || []);
+        if (backups.length) {
+          const last = backups[backups.length - 1];
+          const ts = last.timestamp || last.created_at || last.name || '';
+          document.getElementById('stat-backup').textContent = ts ? formatDate(ts) : 'Disponible';
+        } else {
+          document.getElementById('stat-backup').textContent = 'Ninguno aún';
+        }
+      }
+    } catch {
+      document.getElementById('stat-backup').textContent = 'No disponible';
+    }
+  }
+
+  // ── Modal detalle ──
+  async function openDetail(id) {
+    currentDocId = id;
+    document.getElementById('modal-id').textContent = id;
+    document.getElementById('modal-title').textContent = 'Cargando…';
+    document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-secondary);font-size:13px">Cargando documento…</div>`;
+    document.getElementById('modal-summary-btn').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('open');
+
+    try {
+      const res = await fetch(`${API()}/api/v1/pdf/${id}`, { headers: HEADERS() });
+      if (res.ok) {
+        const doc = await res.json();
+        document.getElementById('modal-title').textContent = doc.filename || 'Documento';
+
+        let html = '';
+
+        if (doc.extracted_text || doc.text) {
+          const txt = doc.extracted_text || doc.text;
+          html += `<div>
+            <div class="modal-section-label">Texto extraído</div>
+            <div class="text-box">${escHtml(txt.slice(0, 1200))}${txt.length > 1200 ? '\n\n… (truncado)' : ''}</div>
+          </div>`;
+        }
+
+        if (doc.summary) {
+          html += `<div>
+            <div class="modal-section-label">Resumen IA</div>
+            <div class="text-box">${escHtml(doc.summary)}</div>
+          </div>`;
+        } else {
+          document.getElementById('modal-summary-btn').style.display = 'inline-flex';
+          document.getElementById('modal-summary-btn').onclick = () => generateSummary(id);
+        }
+
+        if (!html) html = `<div style="color:var(--text-secondary);font-size:13px">No hay texto extraído todavía.</div>`;
+        document.getElementById('modal-body').innerHTML = html;
+      }
+    } catch {
+      document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-muted);font-size:13px">No se pudo cargar el documento.</div>`;
+    }
+  }
+
+  function openSummary(id, filename) {
+    currentDocId = id;
+    document.getElementById('modal-title').textContent = filename || 'Documento';
+    document.getElementById('modal-id').textContent = id;
+    document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-secondary);font-size:13px">Presioná el botón para generar el resumen con Ollama (llama3.2:3b).<br><br>La primera vez puede tardar 1-2 minutos mientras el modelo carga en RAM.</div>`;
+    document.getElementById('modal-summary-btn').style.display = 'inline-flex';
+    document.getElementById('modal-summary-btn').onclick = () => generateSummary(id);
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  async function generateSummary(id) {
+    const btn = document.getElementById('modal-summary-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader-2" aria-hidden="true"></i> Procesando…';
+    document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-secondary);font-size:13px">Generando resumen con Ollama…<br><br><span style="color:var(--text-muted);font-size:12px">Puede tardar hasta 2 minutos la primera vez.</span></div>`;
+
+    try {
+      const res = await fetch(`${API()}/api/v1/pdf/${id}/summary`, {
+        method: 'POST',
+        headers: HEADERS()
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const summary = data.summary || data.text || JSON.stringify(data);
+        document.getElementById('modal-body').innerHTML = `
+          <div>
+            <div class="modal-section-label">Resumen generado por IA</div>
+            <div class="text-box">${escHtml(summary)}</div>
+          </div>`;
+        btn.style.display = 'none';
+        showToast('Resumen generado correctamente.');
+        loadDocs();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-muted);font-size:13px">Error al generar el resumen: ${escHtml(err.detail || res.status)}</div>`;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-brain" aria-hidden="true"></i> Reintentar';
+      }
+    } catch {
+      document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-muted);font-size:13px">No se pudo conectar con la API.</div>`;
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-brain" aria-hidden="true"></i> Reintentar';
+    }
+  }
+
+  async function deleteDoc(id, filename) {
+    if (!confirm(`¿Eliminar "${filename}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch(`${API()}/api/v1/pdf/${id}`, {
+        method: 'DELETE',
+        headers: HEADERS()
+      });
+      if (res.ok) {
+        showToast(`"${filename}" eliminado.`);
+        loadDocs();
+      } else {
+        showToast('No se pudo eliminar el documento.', 'error');
+      }
+    } catch {
+      showToast('Error de conexión.', 'error');
+    }
+  }
+
+  function closeModal(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+  }
+
+  function closeModalDirect() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    currentDocId = null;
+  }
+
+  function logout() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('api_base');
+    window.location.href = 'index.html';
+  }
+
+  // ── Init ──
+  loadUser();
+  loadDocs();
+  loadBackupInfo();
+</script>
+
+</body>
+</html>

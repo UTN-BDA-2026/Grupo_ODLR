@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pdf_extractext — Backup</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:        #0F0F13;
+      --bg-surface:     #18181F;
+      --bg-elevated:    #22222C;
+      --border:         #2E2E3A;
+      --text-primary:   #F0EDE6;
+      --text-secondary: #9B97A8;
+      --text-muted:     #5C5870;
+      --accent:         #6B5EFF;
+      --accent-hover:   #5A4EE0;
+      --accent-subtle:  rgba(107,94,255,0.12);
+      --success-bg:     #0D2B1F;
+      --success-text:   #4ADE80;
+      --warning-bg:     #2B1F0D;
+      --warning-text:   #FACC15;
+      --error-bg:       #2B0D0D;
+      --error-text:     #F87171;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
+
+    .shell { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 210px;
+      background: var(--accent);
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-logo i { font-size: 18px; }
+
+    .nav { display: flex; flex-direction: column; gap: 2px; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      text-decoration: none;
+    }
+
+    .nav-item:hover  { background: rgba(255,255,255,0.1); color: #fff; }
+    .nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 500; }
+    .nav-item i { font-size: 16px; }
+
+    .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+
+    .sidebar-user {
+      padding: 10px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 500; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .user-name { font-size: 12px; color: rgba(255,255,255,0.85); font-weight: 500; }
+    .user-role { font-size: 11px; color: rgba(255,255,255,0.45); }
+
+    .btn-logout {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      font-family: 'Inter', sans-serif;
+      transition: background 0.12s, color 0.12s;
+      width: 100%;
+    }
+
+    .btn-logout:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-surface);
+      overflow-y: auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+
+    .topbar-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .content {
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      max-width: 680px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-header-left { display: flex; align-items: center; gap: 10px; }
+
+    .card-icon {
+      width: 34px; height: 34px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+
+    .card-icon.purple { background: var(--accent-subtle); color: var(--accent); }
+    .card-icon.green  { background: #0D2B1F; color: #4ADE80; }
+    .card-icon.amber  { background: #2B1F0D; color: #FACC15; }
+
+    .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 500; }
+    .card-desc  { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+    .card-body { padding: 1.25rem; }
+
+    /* ── Botones ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 16px;
+      height: 36px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      border: none;
+      font-weight: 500;
+      transition: background 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:hover  { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg-base); color: var(--text-primary); }
+    .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-danger { background: var(--error-bg); color: var(--error-text); border: 1px solid var(--error-text); }
+    .btn-danger:hover { opacity: 0.85; }
+    .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 1rem;
+    }
+    .progress-wrap.visible { display: flex; }
+
+    .progress-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .progress-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.12s linear;
+    }
+
+    /* ── Alert inline ── */
+    .alert {
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 1rem;
+      border: 1px solid;
+    }
+    .alert.visible { display: flex; }
+    .alert i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .alert.success { background: var(--success-bg); color: var(--success-text); border-color: #4ADE80; }
+    .alert.error   { background: var(--error-bg);   color: var(--error-text);   border-color: #F87171; }
+    .alert.warning { background: var(--warning-bg); color: var(--warning-text); border-color: #FACC15; }
+
+    /* ── Lista de backups ── */
+    .backup-list { display: flex; flex-direction: column; }
+
+    .backup-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 1.25rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    .backup-item:last-child { border-bottom: none; }
+    .backup-item:hover { background: rgba(255,255,255,0.02); }
+
+    .backup-item-icon {
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      background: #0D2B1F;
+      color: #4ADE80;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .backup-item-name {
+      font-size: 13px;
+      font-weight: 500;
+      font-family: monospace;
+      color: var(--text-primary);
+    }
+
+    .backup-item-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .badge-latest { background: var(--accent-subtle); color: var(--accent); }
+
+    .empty-state {
+      padding: 2.5rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .empty-state i { font-size: 32px; color: var(--text-muted); display: block; margin-bottom: 10px; }
+
+    /* ── Info RPO/RTO ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .metric-value { font-size: 20px; font-weight: 500; font-family: 'Space Grotesk', sans-serif; margin: 4px 0 2px; }
+    .metric-desc  { font-size: 11px; color: var(--text-secondary); }
+
+    /* ── Confirm overlay ── */
+    .confirm-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+
+    .confirm-overlay.open { display: flex; }
+
+    .confirm-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .confirm-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--warning-text);
+    }
+
+    .confirm-body { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+    .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem; right: 1.5rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 100;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: #4ADE80; color: var(--success-text); }
+    .toast.error   { border-color: #F87171; color: var(--error-text); }
+    .toast.warning { border-color: #FACC15; color: var(--warning-text); }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <i class="ti ti-file-text" aria-hidden="true"></i>
+      pdf_extractext
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html">
+        <i class="ti ti-files" aria-hidden="true"></i> Mis PDFs
+      </a>
+      <a class="nav-item" href="upload.html">
+        <i class="ti ti-upload" aria-hidden="true"></i> Subir PDF
+      </a>
+      <a class="nav-item active" href="backup.html">
+        <i class="ti ti-database-backup" aria-hidden="true"></i> Backup
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="avatar">?</div>
+        <div>
+          <div class="user-name" id="user-name">Cargando…</div>
+          <div class="user-role">usuario</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">
+        <i class="ti ti-logout" aria-hidden="true"></i> Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">Backup &amp; Restore</span>
+    </div>
+
+    <div class="content">
+
+      <!-- Métricas RPO/RTO -->
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div class="metric-label">RPO</div>
+          <div class="metric-value">Manual</div>
+          <div class="metric-desc">Recovery Point Objective — cuánto dato se puede perder</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">RTO</div>
+          <div class="metric-value">Segundos</div>
+          <div class="metric-desc">Recovery Time Objective — tiempo de restauración con mongorestore</div>
+        </div>
+      </div>
+
+      <!-- Crear backup -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <div class="card-icon purple">
+              <i class="ti ti-database-export" aria-hidden="true"></i>
+            </div>
+            <div>
+              <div class="card-title">Crear backup</div>
+              <div class="card-desc">Genera un dump comprimido con timestamp via mongodump</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btn-backup" onclick="doBackup()">
+            <i class="ti ti-database-export" aria-hidden="true"></i> Hacer backup
+          </button>
+        </div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-secondary);line-height:1.6">
+            El backup se ejecuta dentro del container usando <code style="font-size:12px;background:var(--bg-base);padding:1px 5px;border-radius:4px;color:var(--accent)">mongodump</code>
+            y genera un directorio comprimido en <code style="font-size:12px;background:var(--bg-base);padding:1px 5px;border-radius:4px;color:var(--accent)">backups/&lt;timestamp&gt;/</code>
+            con archivos <code style="font-size:12px;background:var(--bg-base);padding:1px 5px;border-radius:4px;color:var(--accent)">.bson.gz</code> y un <code style="font-size:12px;background:var(--bg-base);padding:1px 5px;border-radius:4px;color:var(--accent)">manifest.json</code>.
+          </p>
+          <div class="progress-wrap" id="backup-progress">
+            <div class="progress-label-row">
+              <span id="backup-progress-label">Ejecutando mongodump…</span>
+              <span id="backup-progress-pct">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="backup-progress-fill"></div>
+            </div>
+          </div>
+          <div class="alert" id="backup-alert">
+            <i class="ti ti-check" aria-hidden="true"></i>
+            <span id="backup-alert-text"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de backups -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <div class="card-icon green">
+              <i class="ti ti-archive" aria-hidden="true"></i>
+            </div>
+            <div>
+              <div class="card-title">Backups disponibles</div>
+              <div class="card-desc" id="backup-count">Cargando…</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost" onclick="loadBackups()">
+            <i class="ti ti-refresh" aria-hidden="true"></i> Actualizar
+          </button>
+        </div>
+        <div class="backup-list" id="backup-list">
+          <div class="empty-state">
+            <i class="ti ti-loader-2" aria-hidden="true"></i>
+            Cargando backups…
+          </div>
+        </div>
+      </div>
+
+      <!-- Zona de peligro -->
+      <div class="card" style="border-color: #3A1A1A;">
+        <div class="card-header" style="border-color: #3A1A1A;">
+          <div class="card-header-left">
+            <div class="card-icon amber">
+              <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+            </div>
+            <div>
+              <div class="card-title">Zona de peligro</div>
+              <div class="card-desc">Operaciones destructivas para demostrar restore</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:1rem;">
+          <p style="font-size:13px;color:var(--text-secondary);line-height:1.6">
+            Estas opciones son para demostrar el ciclo completo de backup &amp; restore en la defensa.
+            El restore se hace desde la terminal con <code style="font-size:12px;background:var(--bg-base);padding:1px 5px;border-radius:4px;color:var(--accent)">python scripts/restore.py</code>.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-danger" id="btn-delete-all" onclick="confirmDeleteAll()">
+              <i class="ti ti-trash" aria-hidden="true"></i> Vaciar colección de documentos
+            </button>
+          </div>
+          <div class="alert" id="danger-alert">
+            <i class="ti ti-alert-circle" aria-hidden="true"></i>
+            <span id="danger-alert-text"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title">
+      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+      ¿Confirmar operación?
+    </div>
+    <div class="confirm-body" id="confirm-body"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API     = () => localStorage.getItem('api_base') || 'http://localhost:8000';
+  const TOKEN   = () => localStorage.getItem('jwt_token');
+  const HEADERS = () => ({ 'Authorization': `Bearer ${TOKEN()}`, 'Content-Type': 'application/json' });
+
+  if (!TOKEN()) window.location.href = 'index.html';
+
+  // ── Usuario ──
+  async function loadUser() {
+    try {
+      const res = await fetch(`${API()}/api/v1/auth/me`, { headers: HEADERS() });
+      if (res.status === 401) { logout(); return; }
+      if (res.ok) {
+        const u = await res.json();
+        const name = u.username || u.email || 'usuario';
+        document.getElementById('user-name').textContent = name;
+        document.getElementById('avatar').textContent = initials(name);
+      }
+    } catch {}
+  }
+
+  function initials(n) {
+    return (n || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  function logout() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('api_base');
+    window.location.href = 'index.html';
+  }
+
+  // ── Toast ──
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    const icons = { success: 'ti-check', error: 'ti-alert-circle', warning: 'ti-alert-triangle' };
+    t.innerHTML = `<i class="ti ${icons[type] || 'ti-check'}" aria-hidden="true"></i> ${msg}`;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ── Progress ──
+  function animProgress(wrapId, fillId, pctId) {
+    const wrap = document.getElementById(wrapId);
+    const fill = document.getElementById(fillId);
+    const pct  = document.getElementById(pctId);
+    wrap.classList.add('visible');
+    fill.style.width = '0%';
+    if (pct) pct.textContent = '0%';
+    let p = 0;
+    const iv = setInterval(() => {
+      p += Math.random() * 8 + 3;
+      if (p >= 88) { p = 88; clearInterval(iv); }
+      fill.style.width = p + '%';
+      if (pct) pct.textContent = Math.round(p) + '%';
+    }, 150);
+    return { iv, fill, pct, wrap };
+  }
+
+  function endProgress(prog) {
+    clearInterval(prog.iv);
+    prog.fill.style.width = '100%';
+    if (prog.pct) prog.pct.textContent = '100%';
+    setTimeout(() => { prog.wrap.classList.remove('visible'); prog.fill.style.width = '0%'; }, 600);
+  }
+
+  // ── Alert inline ──
+  function showAlert(id, textId, type, text) {
+    const el = document.getElementById(id);
+    const tx = document.getElementById(textId);
+    const icons = { success: 'ti-check', error: 'ti-alert-circle', warning: 'ti-alert-triangle' };
+    el.querySelector('i').className = `ti ${icons[type] || 'ti-check'}`;
+    tx.textContent = text;
+    el.className = `alert ${type} visible`;
+  }
+
+  function hideAlert(id) {
+    document.getElementById(id).className = 'alert';
+  }
+
+  // ── Backup ──
+  async function doBackup() {
+    const btn = document.getElementById('btn-backup');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader-2" aria-hidden="true"></i> Ejecutando…';
+    hideAlert('backup-alert');
+
+    const prog = animProgress('backup-progress', 'backup-progress-fill', 'backup-progress-pct');
+
+    try {
+      const res = await fetch(`${API()}/api/v1/admin/backup`, {
+        method: 'POST',
+        headers: HEADERS()
+      });
+
+      endProgress(prog);
+
+      if (res.ok) {
+        const data = await res.json();
+        const path = data.path || data.backup_path || data.directory || 'backups/';
+        showAlert('backup-alert', 'backup-alert-text', 'success', `Backup creado en: ${path}`);
+        showToast('Backup generado correctamente.');
+        loadBackups();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        const msg = err.detail || `HTTP ${res.status}`;
+        showAlert('backup-alert', 'backup-alert-text', 'warning',
+          `El endpoint devolvió error: ${msg}. Podés usar "python scripts/backup.py" desde la terminal.`);
+        showToast('Error al generar backup.', 'warning');
+      }
+    } catch {
+      endProgress(prog);
+      showAlert('backup-alert', 'backup-alert-text', 'error',
+        'No se pudo conectar con la API. Verificá que esté corriendo.');
+      showToast('Error de conexión.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-database-export" aria-hidden="true"></i> Hacer backup';
+    }
+  }
+
+  // ── Lista de backups ──
+  async function loadBackups() {
+    const list  = document.getElementById('backup-list');
+    const count = document.getElementById('backup-count');
+    list.innerHTML = `<div class="empty-state"><i class="ti ti-loader-2" aria-hidden="true"></i> Cargando backups…</div>`;
+
+    try {
+      const res = await fetch(`${API()}/api/v1/admin/backups`, { headers: HEADERS() });
+      if (res.ok) {
+        const data = await res.json();
+        const backups = Array.isArray(data) ? data : (data.backups || []);
+        count.textContent = backups.length + ' backup' + (backups.length !== 1 ? 's' : '') + ' disponible' + (backups.length !== 1 ? 's' : '');
+        renderBackups(backups);
+      } else {
+        count.textContent = 'No disponible';
+        list.innerHTML = `<div class="empty-state"><i class="ti ti-wifi-off" aria-hidden="true"></i>No se pudo cargar la lista.</div>`;
+      }
+    } catch {
+      count.textContent = 'Error de conexión';
+      list.innerHTML = `<div class="empty-state"><i class="ti ti-wifi-off" aria-hidden="true"></i>No se pudo conectar con la API.</div>`;
+    }
+  }
+
+  function renderBackups(backups) {
+    const list = document.getElementById('backup-list');
+    if (!backups.length) {
+      list.innerHTML = `<div class="empty-state"><i class="ti ti-archive-off" aria-hidden="true"></i>No hay backups todavía.<br>Creá el primero con el botón de arriba.</div>`;
+      return;
+    }
+
+    list.innerHTML = backups.map((b, i) => {
+      const name = b.name || b.path || b.timestamp || b.directory || `backup_${i + 1}`;
+      const date = b.created_at || b.timestamp ? formatDate(b.created_at || b.timestamp) : '—';
+      const size = b.size ? formatBytes(b.size) : '';
+      const isLatest = i === backups.length - 1;
+      return `
+        <div class="backup-item">
+          <div class="backup-item-icon">
+            <i class="ti ti-archive" aria-hidden="true"></i>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="backup-item-name">${escHtml(name)}</div>
+            <div class="backup-item-meta">${date}${size ? ' · ' + size : ''}</div>
+          </div>
+          ${isLatest ? '<span class="badge badge-latest">Más reciente</span>' : ''}
+        </div>`;
+    }).join('');
+  }
+
+  // ── Vaciar colección ──
+  function confirmDeleteAll() {
+    document.getElementById('confirm-body').innerHTML =
+      'Esto eliminará <strong>todos los documentos</strong> de la colección <code>documents</code> en MongoDB.<br><br>' +
+      'Usalo para demostrar el ciclo de backup &amp; restore. Necesitás haber hecho un backup primero.';
+    document.getElementById('confirm-ok').onclick = executeDeleteAll;
+    document.getElementById('confirm-overlay').classList.add('open');
+  }
+
+  function closeConfirm() {
+    document.getElementById('confirm-overlay').classList.remove('open');
+  }
+
+  async function executeDeleteAll() {
+    closeConfirm();
+    const btn = document.getElementById('btn-delete-all');
+    btn.disabled = true;
+    hideAlert('danger-alert');
+
+    try {
+      const res = await fetch(`${API()}/api/v1/pdf/`, { headers: HEADERS() });
+      if (!res.ok) throw new Error('No se pudo obtener la lista de documentos.');
+
+      const data = await res.json();
+      const docs = Array.isArray(data) ? data : (data.items || data.documents || []);
+
+      if (!docs.length) {
+        showAlert('danger-alert', 'danger-alert-text', 'warning', 'No hay documentos para eliminar.');
+        showToast('No hay documentos en la colección.', 'warning');
+        btn.disabled = false;
+        return;
+      }
+
+      let deleted = 0;
+      for (const doc of docs) {
+        const id = doc.id || doc._id;
+        if (!id) continue;
+        const delRes = await fetch(`${API()}/api/v1/pdf/${id}`, {
+          method: 'DELETE',
+          headers: HEADERS()
+        });
+        if (delRes.ok) deleted++;
+      }
+
+      showAlert('danger-alert', 'danger-alert-text', 'success',
+        `${deleted} documento${deleted !== 1 ? 's' : ''} eliminado${deleted !== 1 ? 's' : ''}. Podés restaurar con "python scripts/restore.py".`);
+      showToast(`${deleted} documentos eliminados.`, 'warning');
+    } catch (e) {
+      showAlert('danger-alert', 'danger-alert-text', 'error', e.message || 'Error inesperado.');
+      showToast('Error al eliminar documentos.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── Helpers ──
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init ──
+  loadUser();
+  loadBackups();
+</script>
+
+</body>
+</html>
