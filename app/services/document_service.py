@@ -30,21 +30,20 @@ class DocumentService:
             filename=document.filename,
             text=document.text,
             checksum=document.checksum,
+            owner_id=document.owner_id,
             created_at=document.created_at,
             updated_at=document.updated_at,
         )
 
     async def upload_pdf(
-        self, session: AsyncIOMotorDatabase, file_bytes: bytes, filename: str
+        self, session: AsyncIOMotorDatabase, file_bytes: bytes, filename: str, owner_id: str
     ) -> DocumentResponse:
         repository = self._get_repository(session)
 
         checksum = calculate_checksum(file_bytes)
-        existing = await repository.find_by_checksum(checksum)
+        existing = await repository.find_by_checksum_and_owner(checksum, owner_id)
         if existing:
-            raise ConflictException(
-                f"El documento ya existe en la base de datos con id: {existing.id}"
-            )
+            raise ConflictException(f"Ya subiste este PDF anteriormente: '{existing.filename}'")
 
         text = extract_text_from_bytes(file_bytes)
 
@@ -53,6 +52,7 @@ class DocumentService:
             filename=filename,
             text=text,
             checksum=checksum,
+            owner_id=owner_id,
             created_at=now,
             updated_at=now,
         )
@@ -64,6 +64,7 @@ class DocumentService:
         session: AsyncIOMotorDatabase,
         file_bytes: bytes,
         filename: str,
+        owner_id: str,
     ) -> DocumentResponse:
         """
         Sube un PDF y registra auditoría en una transacción atómica.
@@ -80,11 +81,9 @@ class DocumentService:
         checksum = calculate_checksum(file_bytes)
         repository = self._get_repository(session)
 
-        existing = await repository.find_by_checksum(checksum)
+        existing = await repository.find_by_checksum_and_owner(checksum, owner_id)
         if existing:
-            raise ConflictException(
-                f"El documento ya existe con id: {existing.id}"
-            )
+            raise ConflictException(f"Ya subiste este PDF anteriormente: '{existing.filename}'")
 
         text = extract_text_from_bytes(file_bytes)
         now = datetime.now(timezone.utc)
@@ -97,6 +96,7 @@ class DocumentService:
                 filename=filename,
                 text=text,
                 checksum=checksum,
+                owner_id=owner_id,
                 created_at=now,
                 updated_at=now,
             ).model_dump()
@@ -123,33 +123,34 @@ class DocumentService:
             filename=filename,
             text=text,
             checksum=checksum,
+            owner_id=owner_id,
             created_at=now,
             updated_at=now,
         )
         return self._to_response(created_doc)
 
     async def get_document_by_id(
-        self, session: AsyncIOMotorDatabase, doc_id: str
+        self, session: AsyncIOMotorDatabase, doc_id: str, owner_id: str
     ) -> DocumentResponse:
         repository = self._get_repository(session)
         document = await repository.get_by_id(doc_id)
-        if document is None:
+        if document is None or document.owner_id != owner_id:
             raise NotFoundException("Document not found")
         return self._to_response(document)
 
     async def list_documents(
-        self, session: AsyncIOMotorDatabase, skip: int = 0, limit: int = 100
+        self, session: AsyncIOMotorDatabase, owner_id: str, skip: int = 0, limit: int = 0
     ) -> List[DocumentResponse]:
         repository = self._get_repository(session)
-        documents = await repository.get_all(skip=skip, limit=limit)
+        documents = await repository.get_by_owner(owner_id, skip=skip, limit=limit)
         return [self._to_response(doc) for doc in documents]
 
     async def update_document(
-        self, session: AsyncIOMotorDatabase, doc_id: str, data: DocumentUpdate
+        self, session: AsyncIOMotorDatabase, doc_id: str, data: DocumentUpdate, owner_id: str
     ) -> DocumentResponse:
         repository = self._get_repository(session)
         existing = await repository.get_by_id(doc_id)
-        if existing is None:
+        if existing is None or existing.owner_id != owner_id:
             raise NotFoundException("Document not found")
 
         update_data = data.model_dump(exclude_unset=True)
@@ -164,12 +165,13 @@ class DocumentService:
         return self._to_response(updated)
 
     async def delete_document(
-        self, session: AsyncIOMotorDatabase, doc_id: str
+        self, session: AsyncIOMotorDatabase, doc_id: str, owner_id: str
     ) -> None:
         repository = self._get_repository(session)
-        deleted = await repository.delete(doc_id)
-        if not deleted:
+        existing = await repository.get_by_id(doc_id)
+        if existing is None or existing.owner_id != owner_id:
             raise NotFoundException("Document not found")
+        await repository.delete(doc_id)
 
 
 document_service = DocumentService()

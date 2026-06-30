@@ -13,6 +13,7 @@ class DocumentDocument(BaseModel):
     filename: str
     text: str
     checksum: str
+    owner_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -25,6 +26,7 @@ class DocumentCreateDocument(BaseModel):
     filename: str
     text: str
     checksum: str
+    owner_id: str
     created_at: datetime
     updated_at: datetime
 

@@ -33,6 +33,7 @@ class DocumentResponse(BaseModel):
     filename: str = Field(..., description="Nombre original del archivo PDF")
     checksum: str = Field(..., description="Checksum SHA-256 del contenido del PDF")
     text: str = Field(..., description="Texto extraído del PDF")
+    owner_id: str = Field(..., description="ID del usuario propietario")
     created_at: datetime = Field(..., description="Fecha de creación")
     updated_at: datetime = Field(..., description="Fecha de última actualización")
 

@@ -38,7 +38,7 @@ async def upload_pdf(
         )
 
     try:
-        return await document_service.upload_pdf(session, pdf_bytes, file.filename)
+        return await document_service.upload_pdf(session, pdf_bytes, file.filename, current_user.id)
     except ConflictException as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError:
@@ -51,11 +51,11 @@ async def upload_pdf(
 @router.get("/", response_model=List[DocumentResponse])
 async def list_documents(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 0,
     session: AsyncIOMotorDatabase = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ):
-    return await document_service.list_documents(session, skip=skip, limit=limit)
+    return await document_service.list_documents(session, owner_id=current_user.id, skip=skip, limit=limit)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -65,7 +65,7 @@ async def get_document(
     current_user=Depends(get_current_user),
 ):
     try:
-        return await document_service.get_document_by_id(session, document_id)
+        return await document_service.get_document_by_id(session, document_id, current_user.id)
     except NotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -78,7 +78,7 @@ async def update_document(
     current_user=Depends(get_current_user),
 ):
     try:
-        return await document_service.update_document(session, document_id, data)
+        return await document_service.update_document(session, document_id, data, current_user.id)
     except NotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -90,7 +90,7 @@ async def delete_document(
     current_user=Depends(get_current_user),
 ):
     try:
-        await document_service.delete_document(session, document_id)
+        await document_service.delete_document(session, document_id, current_user.id)
     except NotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -114,9 +114,12 @@ async def upload_pdf_audited(
     file_bytes = await file.read()
 
     if not file_bytes.startswith(b"%PDF-"):
-        raise HTTPException(status_code=400, detail="El archivo no es un PDF vÃ¡lido.")
+        raise HTTPException(status_code=400, detail="El archivo no es un PDF válido.")
 
-    return await document_service.upload_pdf_with_audit(session, file_bytes, file.filename)
+    try:
+        return await document_service.upload_pdf_with_audit(session, file_bytes, file.filename, current_user.id)
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 @router.post("/{document_id}/summary")
 async def summarize_pdf(
@@ -127,7 +130,7 @@ async def summarize_pdf(
     """Genera un resumen del PDF usando Ollama (llama3.2:3b)."""
     # 1. Buscar el documento
     try:
-        doc = await document_service.get_document_by_id(session, document_id)
+        doc = await document_service.get_document_by_id(session, document_id, current_user.id)
     except NotFoundException:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 

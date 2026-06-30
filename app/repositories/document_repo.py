@@ -37,6 +37,7 @@ class DocumentRepository(
             filename=document["filename"],
             text=document["text"],
             checksum=document["checksum"],
+            owner_id=document.get("owner_id", ""),
             created_at=document.get("created_at", datetime.min),
             updated_at=document.get("updated_at", datetime.min),
         )
@@ -49,15 +50,20 @@ class DocumentRepository(
         return self._to_model(await self.collection.find_one({"_id": object_id}))
 
     async def get_by_field(
-        self, field: str, value: Any, skip: int = 0, limit: int = 100
+        self, field: str, value: Any, skip: int = 0, limit: int = 0
     ) -> list[DocumentDocument]:
         cursor = self.collection.find({field: value}).skip(skip).limit(limit)
-        documents = await cursor.to_list(length=limit)
+        documents = await cursor.to_list(length=None)
         return [self._to_model(doc) for doc in documents]
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> list[DocumentDocument]:
+    async def get_all(self, skip: int = 0, limit: int = 0) -> list[DocumentDocument]:
         cursor = self.collection.find({}).skip(skip).limit(limit)
-        documents = await cursor.to_list(length=limit)
+        documents = await cursor.to_list(length=None)
+        return [self._to_model(doc) for doc in documents]
+
+    async def get_by_owner(self, owner_id: str, skip: int = 0, limit: int = 0) -> list[DocumentDocument]:
+        cursor = self.collection.find({"owner_id": owner_id}).skip(skip).limit(limit)
+        documents = await cursor.to_list(length=None)
         return [self._to_model(doc) for doc in documents]
 
     async def create(self, obj_in: DocumentCreateDocument) -> DocumentDocument:
@@ -91,8 +97,8 @@ class DocumentRepository(
     async def count(self, filters: Optional[dict[str, Any]] = None) -> int:
         return await self.collection.count_documents(filters or {})
 
-    async def find_by_checksum(self, checksum: str) -> Optional[DocumentDocument]:
-        return self._to_model(await self.collection.find_one({"checksum": checksum}))
+    async def find_by_checksum_and_owner(self, checksum: str, owner_id: str) -> Optional[DocumentDocument]:
+        return self._to_model(await self.collection.find_one({"checksum": checksum, "owner_id": owner_id}))
     
     async def find_by_id(self, document_id: str) -> dict | None:
         return await self.collection.find_one({"_id": ObjectId(document_id)})

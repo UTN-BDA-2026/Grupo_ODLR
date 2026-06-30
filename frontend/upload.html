@@ -83,7 +83,7 @@
     .nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 500; }
     .nav-item i { font-size: 16px; }
 
-    .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+    .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; overflow: hidden; }
 
     .sidebar-user {
       padding: 10px;
@@ -103,7 +103,15 @@
       flex-shrink: 0;
     }
 
-    .user-name { font-size: 12px; color: rgba(255,255,255,0.85); font-weight: 500; }
+    .user-name {
+      font-size: 12px;
+      color: rgba(255,255,255,0.85);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+    }
     .user-role { font-size: 11px; color: rgba(255,255,255,0.45); }
 
     .btn-logout {
@@ -128,7 +136,8 @@
       display: flex;
       flex-direction: column;
       background: var(--bg-surface);
-      overflow-y: auto;
+      overflow: hidden;
+      min-height: 0;
     }
 
     .topbar {
@@ -151,8 +160,13 @@
       padding: 2rem 1.5rem;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       gap: 1.5rem;
       max-width: 640px;
+      width: 100%;
+      margin: 0 auto;
+      overflow-y: auto;
+      min-height: 0;
     }
 
     /* ── Drop zone ── */
@@ -479,9 +493,6 @@
       <a class="nav-item active" href="upload.html">
         <i class="ti ti-upload" aria-hidden="true"></i> Subir PDF
       </a>
-      <a class="nav-item" href="backup.html">
-        <i class="ti ti-database-backup" aria-hidden="true"></i> Backup
-      </a>
     </nav>
 
     <div class="sidebar-bottom">
@@ -533,18 +544,6 @@
       <!-- Opciones -->
       <div class="options-card">
         <div class="options-title">Opciones de subida</div>
-
-        <div class="option-row">
-          <div>
-            <div class="option-label">Transacción ACID</div>
-            <div class="option-desc">Usa <code>upload-audited</code> — registra en audit_log atómicamente</div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="use-audited" checked />
-            <div class="toggle-track"></div>
-            <div class="toggle-thumb"></div>
-          </label>
-        </div>
 
         <div class="option-row">
           <div>
@@ -778,7 +777,7 @@
   async function doUpload() {
     if (!selectedFile) return;
 
-    const useAudited  = document.getElementById('use-audited').checked;
+    const useAudited  = true;
     const autoSummary = document.getElementById('auto-summary').checked;
     const btn         = document.getElementById('btn-upload');
 
@@ -818,6 +817,10 @@
         if (autoSummary && docId) {
           setTimeout(() => generateSummary(docId), 400);
         }
+      } else if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
+        showResult('error', 'Documento ya existente', err.detail || 'Este documento ya existe en el sistema.', null);
+        showToast('Este documento ya existe.', 'error');
       } else {
         const err = await res.json().catch(() => ({}));
         showResult('error', 'Error al subir el archivo', err.detail || `HTTP ${res.status}`, null);
