@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .env
 .venv/
+certs/
+*.pem
+*.key
 backups/
 # Ignorar archivos de backup
 backups/*

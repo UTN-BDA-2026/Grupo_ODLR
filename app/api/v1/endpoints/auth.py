@@ -42,6 +42,18 @@ async def get_current_user(
         ) from exc
 
 
+async def require_superuser(
+    current_user: UserResponse = Depends(get_current_user),
+) -> UserResponse:
+    """Authorize only superusers; raise 403 for regular authenticated users."""
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requieren privilegios de administrador",
+        )
+    return current_user
+
+
 @router.post(
     "/login",
     response_model=Token,

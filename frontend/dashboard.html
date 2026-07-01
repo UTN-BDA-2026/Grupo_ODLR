@@ -537,6 +537,9 @@
       <a class="nav-item" href="upload.html">
         <i class="ti ti-upload" aria-hidden="true"></i> Subir PDF
       </a>
+      <a class="nav-item" href="admin.html" id="nav-admin" style="display:none">
+        <i class="ti ti-shield-lock" aria-hidden="true"></i> Admin
+      </a>
     </nav>
 
     <div class="sidebar-bottom">
@@ -659,6 +662,8 @@
   let currentPage = 1;
   const PAGE_SIZE = 25;
   let sortOrder = 'desc';
+  let currentSearch = '';
+  let searchDebounce = null;
 
   // ── Redirect si no hay token ──
   if (!TOKEN()) window.location.href = 'index.html';
@@ -717,23 +722,30 @@
         const name = u.username || u.email || 'usuario';
         document.getElementById('user-name').textContent = name;
         document.getElementById('avatar').textContent = initials(name);
+        // El acceso al panel admin solo se ofrece a superusuarios.
+        if (u.is_superuser) document.getElementById('nav-admin').style.display = '';
       }
     } catch {}
   }
 
   // ── Cargar documentos ──
+  // La búsqueda (por nombre) y el orden (por fecha) se resuelven en el backend:
+  // se envían como query params y MongoDB filtra/ordena usando sus índices.
   async function loadDocs() {
     const prog = animProgress();
     try {
-      const res = await fetch(`${API()}/api/v1/pdf/`, { headers: HEADERS() });
+      const params = new URLSearchParams();
+      if (currentSearch) params.set('search', currentSearch);
+      params.set('order', sortOrder);
+      const qs = params.toString();
+      const res = await fetch(`${API()}/api/v1/pdf/${qs ? '?' + qs : ''}`, { headers: HEADERS() });
       endProgress(prog);
       if (res.ok) {
         const data = await res.json();
         const docs = Array.isArray(data) ? data : (data.items || data.documents || []);
         allDocs = docs;
-        filteredDocs = sortDocs(docs);
+        filteredDocs = docs;
         currentPage = 1;
-        document.getElementById('search-input').value = '';
         renderPage();
       } else {
         renderEmpty('No se pudo cargar la lista de documentos.');
@@ -742,14 +754,6 @@
       endProgress(prog);
       renderEmpty('No se pudo conectar con la API.');
     }
-  }
-
-  function sortDocs(docs) {
-    return [...docs].sort((a, b) => {
-      const da = new Date(a.created_at || a.uploaded_at || 0);
-      const db = new Date(b.created_at || b.uploaded_at || 0);
-      return sortOrder === 'desc' ? db - da : da - db;
-    });
   }
 
   function toggleSort() {
@@ -762,16 +766,13 @@
       btn.title = 'Más antiguos primero';
       btn.querySelector('i').className = 'ti ti-sort-ascending-2';
     }
-    filteredDocs = sortDocs(filteredDocs);
-    currentPage = 1;
-    renderPage();
+    loadDocs();
   }
 
   function filterDocs(query) {
-    const q = query.trim().toLowerCase();
-    filteredDocs = sortDocs(q ? allDocs.filter(d => (d.filename || '').toLowerCase().includes(q)) : allDocs);
-    currentPage = 1;
-    renderPage();
+    currentSearch = query.trim();
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(loadDocs, 300);
   }
 
   function renderPage() {
@@ -783,7 +784,7 @@
     const pageDocs = filteredDocs.slice(start, start + PAGE_SIZE);
 
     // Contador
-    const isFiltered = filteredDocs.length !== allDocs.length;
+    const isFiltered = !!currentSearch;
     const end = Math.min(start + PAGE_SIZE, total);
     document.getElementById('doc-count').textContent = total
       ? (isFiltered
@@ -791,8 +792,12 @@
           : `${start + 1}–${end} de ${total} documento${total !== 1 ? 's' : ''}`)
       : '0 documentos';
 
-    document.getElementById('stat-total').textContent = allDocs.length;
-    document.getElementById('stat-summarized').textContent = allDocs.filter(d => d.summary).length;
+    // Las KPIs reflejan el total real: no se actualizan mientras hay una búsqueda
+    // activa, ya que en ese caso allDocs contiene solo el subconjunto filtrado.
+    if (!isFiltered) {
+      document.getElementById('stat-total').textContent = allDocs.length;
+      document.getElementById('stat-summarized').textContent = allDocs.filter(d => d.summary).length;
+    }
 
     renderDocs(pageDocs, isFiltered);
     renderPagination(totalPages);

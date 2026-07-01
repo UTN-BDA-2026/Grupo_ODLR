@@ -1,5 +1,6 @@
 # app/repositories/document_repo.py
 
+import re
 from datetime import datetime
 from typing import Any, Optional
 
@@ -61,8 +62,56 @@ class DocumentRepository(
         documents = await cursor.to_list(length=None)
         return [self._to_model(doc) for doc in documents]
 
-    async def get_by_owner(self, owner_id: str, skip: int = 0, limit: int = 0) -> list[DocumentDocument]:
-        cursor = self.collection.find({"owner_id": owner_id}).skip(skip).limit(limit)
+    async def get_by_owner(
+        self,
+        owner_id: str,
+        skip: int = 0,
+        limit: int = 0,
+        search: Optional[str] = None,
+        order: str = "desc",
+    ) -> list[DocumentDocument]:
+        query: dict[str, Any] = {"owner_id": owner_id}
+        if search:
+            query["filename"] = {"$regex": re.escape(search), "$options": "i"}
+
+        direction = -1 if order == "desc" else 1
+        cursor = (
+            self.collection.find(query)
+            .sort("created_at", direction)
+            .skip(skip)
+            .limit(limit)
+        )
+        documents = await cursor.to_list(length=None)
+        return [self._to_model(doc) for doc in documents]
+
+    async def list_all(
+        self,
+        owner_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 0,
+        search: Optional[str] = None,
+        order: str = "desc",
+    ) -> list[DocumentDocument]:
+        """Listado de documentos para el panel administrativo.
+
+        Si se pasa owner_id, el filtro por propietario + sort por created_at
+        usa el índice compuesto ix_documents_owner_created {owner_id, created_at}.
+        Sin owner_id se recorre toda la colección (vista global de admin):
+        el filename usa $regex no anclado, que no aprovecha índice.
+        """
+        query: dict[str, Any] = {}
+        if owner_id:
+            query["owner_id"] = owner_id
+        if search:
+            query["filename"] = {"$regex": re.escape(search), "$options": "i"}
+
+        direction = -1 if order == "desc" else 1
+        cursor = (
+            self.collection.find(query)
+            .sort("created_at", direction)
+            .skip(skip)
+            .limit(limit)
+        )
         documents = await cursor.to_list(length=None)
         return [self._to_model(doc) for doc in documents]
 

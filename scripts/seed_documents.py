@@ -19,10 +19,10 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 SEED_USERS = [
-    {"username": "admin",   "email": "admin@demo.com",   "password": "admin123",   "full_name": "Admin"},
-    {"username": "usuario", "email": "usuario@demo.com", "password": "usuario123", "full_name": "Usuario Demo"},
-    {"username": "santino", "email": "santino@demo.com", "password": "santino123", "full_name": "Santino"},
-    {"username": "juani",   "email": "juani@demo.com",   "password": "juani123",   "full_name": "Juani"},
+    {"username": "admin",   "email": "admin@demo.com",   "password": "admin123",   "full_name": "Admin",        "is_superuser": True},
+    {"username": "usuario", "email": "usuario@demo.com", "password": "usuario123", "full_name": "Usuario Demo", "is_superuser": False},
+    {"username": "santino", "email": "santino@demo.com", "password": "santino123", "full_name": "Santino",      "is_superuser": False},
+    {"username": "juani",   "email": "juani@demo.com",   "password": "juani123",   "full_name": "Juani",        "is_superuser": False},
 ]
 
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
@@ -63,7 +63,16 @@ async def ensure_seed_users(db) -> list[str]:
         existing = await db["users"].find_one({"username": u["username"]})
         if existing:
             owner_ids.append(str(existing["_id"]))
-            print(f"  [skip]   {u['username']} ya existe")
+            # Asegura el flag de superusuario aunque el usuario ya existiera
+            # de una corrida previa (idempotente).
+            if existing.get("is_superuser", False) != u["is_superuser"]:
+                await db["users"].update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"is_superuser": u["is_superuser"], "updated_at": now}},
+                )
+                print(f"  [update] {u['username']} -> is_superuser={u['is_superuser']}")
+            else:
+                print(f"  [skip]   {u['username']} ya existe")
         else:
             result = await db["users"].insert_one({
                 "username": u["username"],
@@ -71,7 +80,7 @@ async def ensure_seed_users(db) -> list[str]:
                 "hashed_password": pwd_context.hash(u["password"]),
                 "full_name": u["full_name"],
                 "is_active": True,
-                "is_superuser": u["username"] == "admin",
+                "is_superuser": u["is_superuser"],
                 "role_ids": [],
                 "created_at": now,
                 "updated_at": now,

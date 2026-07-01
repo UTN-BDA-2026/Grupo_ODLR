@@ -493,6 +493,9 @@
       <a class="nav-item active" href="upload.html">
         <i class="ti ti-upload" aria-hidden="true"></i> Subir PDF
       </a>
+      <a class="nav-item" href="admin.html" id="nav-admin" style="display:none">
+        <i class="ti ti-shield-lock" aria-hidden="true"></i> Admin
+      </a>
     </nav>
 
     <div class="sidebar-bottom">
@@ -607,6 +610,8 @@
         const name = u.username || u.email || 'usuario';
         document.getElementById('user-name').textContent = name;
         document.getElementById('avatar').textContent = initials(name);
+        // El acceso al panel admin solo se ofrece a superusuarios.
+        if (u.is_superuser) document.getElementById('nav-admin').style.display = '';
       }
     } catch {}
   }

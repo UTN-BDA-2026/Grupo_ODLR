@@ -62,6 +62,25 @@ class UserRepository(
         documents = await cursor.to_list(length=limit)
         return [self._to_model(document) for document in documents]
 
+    async def get_all_sorted(
+        self, skip: int = 0, limit: int = 0, order: str = "desc"
+    ) -> list[UserDocument]:
+        """Listado de usuarios ordenado por fecha de alta.
+
+        El sort por created_at aprovecha el índice idx_users_created_at_desc
+        {created_at: -1}, evitando un SORT en memoria sobre la colección.
+        Usado por el panel administrativo.
+        """
+        direction = -1 if order == "desc" else 1
+        cursor = (
+            self.collection.find({})
+            .sort("created_at", direction)
+            .skip(skip)
+            .limit(limit)
+        )
+        documents = await cursor.to_list(length=None)
+        return [self._to_model(document) for document in documents]
+
     async def create(self, obj_in: UserCreateDocument) -> UserDocument:
         document = obj_in.model_dump()
         result = await self.collection.insert_one(document)

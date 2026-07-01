@@ -139,11 +139,46 @@ class DocumentService:
         return self._to_response(document)
 
     async def list_documents(
-        self, session: AsyncIOMotorDatabase, owner_id: str, skip: int = 0, limit: int = 0
+        self,
+        session: AsyncIOMotorDatabase,
+        owner_id: str,
+        skip: int = 0,
+        limit: int = 0,
+        search: str | None = None,
+        order: str = "desc",
     ) -> List[DocumentResponse]:
         repository = self._get_repository(session)
-        documents = await repository.get_by_owner(owner_id, skip=skip, limit=limit)
+        documents = await repository.get_by_owner(
+            owner_id, skip=skip, limit=limit, search=search, order=order
+        )
         return [self._to_response(doc) for doc in documents]
+
+    async def list_all_documents(
+        self,
+        session: AsyncIOMotorDatabase,
+        owner_id: str | None = None,
+        skip: int = 0,
+        limit: int = 0,
+        search: str | None = None,
+        order: str = "desc",
+    ) -> List[DocumentResponse]:
+        """Listado administrativo de documentos (todos o filtrados por owner).
+
+        Con owner_id se apoya en el índice ix_documents_owner_created.
+        """
+        repository = self._get_repository(session)
+        documents = await repository.list_all(
+            owner_id=owner_id, skip=skip, limit=limit, search=search, order=order
+        )
+        return [self._to_response(doc) for doc in documents]
+
+    async def count_documents(
+        self, session: AsyncIOMotorDatabase, owner_id: str | None = None
+    ) -> int:
+        """Cantidad total de documentos (global o por propietario)."""
+        repository = self._get_repository(session)
+        filters = {"owner_id": owner_id} if owner_id else None
+        return await repository.count(filters)
 
     async def update_document(
         self, session: AsyncIOMotorDatabase, doc_id: str, data: DocumentUpdate, owner_id: str

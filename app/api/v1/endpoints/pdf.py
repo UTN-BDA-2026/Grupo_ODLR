@@ -52,10 +52,14 @@ async def upload_pdf(
 async def list_documents(
     skip: int = 0,
     limit: int = 0,
+    search: str | None = None,
+    order: str = "desc",
     session: AsyncIOMotorDatabase = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ):
-    return await document_service.list_documents(session, owner_id=current_user.id, skip=skip, limit=limit)
+    return await document_service.list_documents(
+        session, owner_id=current_user.id, skip=skip, limit=limit, search=search, order=order
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)

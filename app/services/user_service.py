@@ -39,6 +39,7 @@ class UserService:
             username=document.username,
             full_name=document.full_name,
             is_active=document.is_active,
+            is_superuser=document.is_superuser,
             created_at=document.created_at,
             updated_at=document.updated_at,
         )
@@ -115,6 +116,27 @@ class UserService:
         repository = self._get_repository(session)
         documents = await repository.get_all(skip=skip, limit=limit)
         return [self._to_response(document) for document in documents]
+
+    async def list_users_admin(
+        self,
+        session: AsyncIOMotorDatabase,
+        skip: int = 0,
+        limit: int = 0,
+        order: str = "desc",
+    ) -> List[UserResponse]:
+        """Listado administrativo de usuarios ordenado por fecha de alta.
+
+        Se apoya en el índice idx_users_created_at_desc para el orden.
+        """
+        repository = self._get_repository(session)
+        documents = await repository.get_all_sorted(
+            skip=skip, limit=limit, order=order
+        )
+        return [self._to_response(document) for document in documents]
+
+    async def count_users(self, session: AsyncIOMotorDatabase) -> int:
+        """Cantidad total de usuarios registrados."""
+        return await self._get_repository(session).count()
 
     async def update_user(
         self, session: AsyncIOMotorDatabase, user_id: str, user_data: UserUpdate

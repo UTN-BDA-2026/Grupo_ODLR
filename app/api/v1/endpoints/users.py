@@ -10,6 +10,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.api.v1.endpoints.auth import get_current_user, require_superuser
 from app.core.exceptions import ConflictException, NotFoundException
 from app.db.database import get_db_session
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
@@ -54,6 +55,7 @@ async def list_users(
     skip: int = 0,
     limit: int = 100,
     session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(require_superuser),
 ) -> List[UserResponse]:
     """
     List all users.
@@ -76,7 +78,9 @@ async def list_users(
     description="Get a specific user by their ID",
 )
 async def get_user(
-    user_id: str, session: AsyncIOMotorDatabase = Depends(get_db_session)
+    user_id: str,
+    session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(require_superuser),
 ) -> UserResponse:
     """
     Get user by ID.
@@ -107,18 +111,29 @@ async def update_user(
     user_id: str,
     user_data: UserUpdate,
     session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user),
 ) -> UserResponse:
     """
     Update user.
+
+    Un superusuario puede editar cualquier cuenta; un usuario común solo
+    puede editar la suya propia.
 
     Args:
         user_id: User ID to update
         user_data: Update data
         session: Database session
+        current_user: Authenticated user resolved from the bearer token
 
     Returns:
         Updated user data
     """
+    if not current_user.is_superuser and current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo podés editar tu propia cuenta",
+        )
+
     try:
         return await user_service.update_user(session, user_id, user_data)
     except NotFoundException as e:
@@ -134,7 +149,9 @@ async def update_user(
     description="Delete a user account",
 )
 async def delete_user(
-    user_id: str, session: AsyncIOMotorDatabase = Depends(get_db_session)
+    user_id: str,
+    session: AsyncIOMotorDatabase = Depends(get_db_session),
+    current_user=Depends(require_superuser),
 ) -> None:
     """
     Delete user.

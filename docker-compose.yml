@@ -1,4 +1,13 @@
 services:
+  # Genera keyfile + certificados TLS en el volumen compartido (una sola vez)
+  cert-init:
+    image: alpine:3.20
+    volumes:
+      - mongo_certs:/certs
+      - ./scripts/init_mongo_security.sh:/init.sh:ro
+    entrypoint: ["sh", "/init.sh"]
+    restart: "no"
+
   app:
     build: .
     ports:
@@ -6,49 +15,111 @@ services:
     env_file:
       - .env
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_URL=mongodb://${MONGO_APP_USER}:${MONGO_APP_PASSWORD}@mongodb:27017/?authSource=pdf_extract_db&tls=true&tlsCAFile=/etc/mongo-certs/ca.crt
+    volumes:
+      - mongo_certs:/etc/mongo-certs:ro
     restart: unless-stopped
     depends_on:
       mongodb:
         condition: service_healthy
       mongo-init:
         condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
       ollama:
         condition: service_started
+
   mongodb:
     image: mongo:7.0
     ports:
       - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
     volumes:
       - mongodb_data:/data/db
-    command: ["--replSet", "rs0", "--bind_ip_all"]
+      - mongo_certs:/etc/mongo-certs:ro
+    command:
+      - "--replSet"
+      - "rs0"
+      - "--bind_ip_all"
+      - "--keyFile"
+      - "/etc/mongo-certs/keyfile"
+      - "--tlsMode"
+      - "requireTLS"
+      - "--tlsCertificateKeyFile"
+      - "/etc/mongo-certs/server.pem"
+      - "--tlsCAFile"
+      - "/etc/mongo-certs/ca.crt"
+      - "--tlsAllowConnectionsWithoutCertificates"
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test:
+        - "CMD"
+        - "mongosh"
+        - "--tls"
+        - "--tlsCAFile"
+        - "/etc/mongo-certs/ca.crt"
+        - "--tlsAllowInvalidCertificates"
+        - "--eval"
+        - "db.adminCommand('ping')"
       interval: 10s
       timeout: 5s
       retries: 5
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+
+  # Inicializa el replica set y crea el usuario de aplicacion (sobre TLS + auth)
   mongo-init:
     image: mongo:7.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_APP_USER: ${MONGO_APP_USER}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+    volumes:
+      - mongo_certs:/etc/mongo-certs:ro
+      - ./scripts/mongo-init.sh:/mongo-init.sh:ro
+    entrypoint: ["bash", "/mongo-init.sh"]
+    restart: "no"
     depends_on:
       mongodb:
         condition: service_healthy
-    restart: "no"
-    entrypoint: >
-      mongosh --host mongodb:27017 --eval
-      "try { rs.status() } catch(e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] }) }"
-  seed:
+
+  migrate:
     build: .
     env_file:
       - .env
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017
-    command: ["uv", "run", "python", "scripts/seed_documents.py", "--count", "500"]
+      - MONGODB_URL=mongodb://${MONGO_APP_USER}:${MONGO_APP_PASSWORD}@mongodb:27017/?authSource=pdf_extract_db&tls=true&tlsCAFile=/etc/mongo-certs/ca.crt
+    volumes:
+      - mongo_certs:/etc/mongo-certs:ro
+    command: ["uv", "run", "python", "-m", "migrations", "migrate"]
     depends_on:
       mongodb:
         condition: service_healthy
       mongo-init:
         condition: service_completed_successfully
     restart: "no"
+
+  seed:
+    build: .
+    env_file:
+      - .env
+    environment:
+      - MONGODB_URL=mongodb://${MONGO_APP_USER}:${MONGO_APP_PASSWORD}@mongodb:27017/?authSource=pdf_extract_db&tls=true&tlsCAFile=/etc/mongo-certs/ca.crt
+    volumes:
+      - mongo_certs:/etc/mongo-certs:ro
+    command: ["uv", "run", "python", "scripts/seed_documents.py", "--count", "500"]
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
   ollama:
     image: ollama/ollama:latest
     container_name: grupo_odlr-ollama-1
@@ -57,6 +128,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
+
   frontend:
     image: nginx:alpine
     ports:
@@ -66,6 +138,8 @@ services:
     restart: unless-stopped
     depends_on:
       - app
+
 volumes:
   mongodb_data:
   ollama_data:
+  mongo_certs:

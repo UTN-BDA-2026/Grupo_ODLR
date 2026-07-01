@@ -25,6 +25,7 @@ class AuthService:
             username=document.username,
             full_name=document.full_name,
             is_active=document.is_active,
+            is_superuser=document.is_superuser,
             created_at=document.created_at,
             updated_at=document.updated_at,
         )

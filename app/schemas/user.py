@@ -62,6 +62,7 @@ class UserResponse(UserBase):
 
     id: str
     is_active: bool
+    is_superuser: bool = False
     created_at: datetime
     updated_at: datetime
 

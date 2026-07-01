@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pdf_extractext — Admin</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:       #0F0F13;
+      --bg-surface:    #18181F;
+      --bg-elevated:   #22222C;
+      --border:        #2E2E3A;
+      --text-primary:  #F0EDE6;
+      --text-secondary:#9B97A8;
+      --text-muted:    #5C5870;
+      --accent:        #6B5EFF;
+      --accent-hover:  #5A4EE0;
+      --success-bg:    #0D2B1F;
+      --success-text:  #4ADE80;
+      --warning-bg:    #2B1F0D;
+      --warning-text:  #FACC15;
+      --error-bg:      #2B0D0D;
+      --error-text:    #F87171;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
+
+    .shell { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 210px;
+      background: var(--accent);
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sidebar-logo i { font-size: 18px; }
+
+    .nav { display: flex; flex-direction: column; gap: 2px; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      text-decoration: none;
+      user-select: none;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 500; }
+    .nav-item i { font-size: 16px; }
+
+    .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; overflow: hidden; }
+
+    .sidebar-user {
+      padding: 10px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 500; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .user-name {
+      font-size: 12px;
+      color: rgba(255,255,255,0.85);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+    }
+    .user-role  { font-size: 11px; color: rgba(255,255,255,0.45); }
+
+    .btn-logout {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      font-family: 'Inter', sans-serif;
+      transition: background 0.12s, color 0.12s;
+      width: 100%;
+    }
+    .btn-logout:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+
+    /* ── Main ── */
+    .main { flex: 1; display: flex; flex-direction: column; background: var(--bg-surface); overflow: hidden; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+    .topbar-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 500; }
+    .topbar-actions { display: flex; gap: 8px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      height: 34px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #fff; font-weight: 500; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg-base); color: var(--text-primary); }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0.85rem 1.5rem 0;
+      flex-shrink: 0;
+    }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border-radius: 8px 8px 0 0;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .tab i { font-size: 15px; }
+    .tab:hover { color: var(--text-primary); }
+    .tab.active { color: var(--text-primary); background: var(--bg-elevated); font-weight: 500; }
+
+    /* Stats */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 1rem 1.5rem 0;
+      flex-shrink: 0;
+    }
+    .stat-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; }
+    .stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+    .stat-value { font-size: 24px; font-weight: 500; font-family: 'Space Grotesk', sans-serif; color: var(--text-primary); }
+    .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Progress bar */
+    .progress-wrap {
+      height: 2px; background: var(--border); overflow: hidden; display: none;
+      margin: 1rem 1.5rem 0; border-radius: 2px; flex-shrink: 0;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
+
+    /* Table */
+    .table-wrap { flex: 1; padding: 1.25rem 1.5rem 1.5rem; overflow-y: auto; }
+    .table-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+      gap: 8px; flex-wrap: wrap;
+    }
+    .table-title { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+
+    .index-hint {
+      font-size: 10px;
+      font-family: monospace;
+      color: var(--text-muted);
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      font-size: 11px; font-weight: 500; color: var(--text-secondary);
+      text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border);
+      background: var(--bg-surface); text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .file-cell { display: flex; align-items: center; gap: 10px; }
+    .file-icon {
+      width: 30px; height: 30px;
+      background: rgba(107,94,255,0.15); color: var(--accent);
+      border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .file-name { font-weight: 500; font-size: 13px; color: var(--text-primary); }
+    .file-id   { font-size: 11px; color: var(--text-muted); font-family: monospace; margin-top: 1px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    }
+    .badge-done { background: var(--success-bg); color: var(--success-text); }
+    .badge-err  { background: var(--error-bg);   color: var(--error-text); }
+
+    .owner-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-family: monospace; color: var(--text-secondary);
+      background: var(--bg-base); border: 1px solid var(--border);
+      border-radius: 20px; padding: 3px 9px;
+    }
+
+    .actions { display: flex; gap: 4px; }
+    .icon-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+      background: transparent; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text-secondary); font-size: 14px;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .icon-btn:hover { background: var(--bg-surface); color: var(--text-primary); }
+    .icon-btn.ai:hover { background: rgba(107,94,255,0.15); color: var(--accent); border-color: var(--accent); }
+
+    .empty-state { padding: 3rem; text-align: center; color: var(--text-secondary); font-size: 13px; }
+    .empty-state i { font-size: 36px; color: var(--text-muted); display: block; margin-bottom: 10px; }
+
+    /* Filter chip (documents filtered by owner) */
+    .filter-bar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .filter-bar.visible { display: flex; }
+    .filter-bar .clear-filter {
+      margin-left: auto; cursor: pointer; color: var(--accent);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .filter-bar .clear-filter:hover { color: var(--accent-hover); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 16px; font-size: 13px;
+      display: flex; align-items: center; gap: 8px;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s; z-index: 100; max-width: 320px;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: #4ADE80; color: var(--success-text); }
+    .toast.error   { border-color: #F87171; color: var(--error-text); }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 200; }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.5rem; width: 90vw; height: 88vh;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+    .modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 500; }
+    .modal-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: monospace; }
+    .modal-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; min-height: 0; }
+    .modal-section-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .text-box {
+      background: var(--bg-base); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;
+      white-space: pre-wrap; word-break: break-word; flex: 1; overflow-y: auto;
+    }
+    .section-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .section-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .btn-copy {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
+      border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .btn-copy:hover { background: var(--bg-surface); color: var(--text-primary); }
+    .btn-copy.copied { border-color: var(--success-text); color: var(--success-text); }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* Pagination */
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 1rem; border-top: 1px solid var(--border); }
+    .page-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 30px; height: 30px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+      font-size: 12px; font-family: 'Inter', sans-serif; cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .page-btn:hover:not(:disabled) { background: var(--bg-surface); color: var(--text-primary); }
+    .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+    .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .page-info { font-size: 12px; color: var(--text-muted); padding: 0 6px; }
+
+    /* Search */
+    .search-wrap { position: relative; display: flex; align-items: center; }
+    .search-icon { position: absolute; left: 9px; font-size: 14px; color: var(--text-muted); pointer-events: none; }
+    .search-input {
+      background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 5px 10px 5px 30px; font-size: 13px; font-family: 'Inter', sans-serif;
+      color: var(--text-primary); width: 220px; outline: none; transition: border-color 0.15s;
+    }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus { border-color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <i class="ti ti-file-text" aria-hidden="true"></i>
+      pdf_extractext
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html">
+        <i class="ti ti-files" aria-hidden="true"></i> Mis PDFs
+      </a>
+      <a class="nav-item" href="upload.html">
+        <i class="ti ti-upload" aria-hidden="true"></i> Subir PDF
+      </a>
+      <a class="nav-item active" href="admin.html">
+        <i class="ti ti-shield-lock" aria-hidden="true"></i> Admin
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="avatar">?</div>
+        <div>
+          <div class="user-name" id="user-name">Cargando…</div>
+          <div class="user-role">administrador</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">
+        <i class="ti ti-logout" aria-hidden="true"></i> Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">Panel de administrador</span>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" onclick="reloadActive()">
+          <i class="ti ti-refresh" aria-hidden="true"></i> Actualizar
+        </button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-users" onclick="switchTab('users')">
+        <i class="ti ti-users" aria-hidden="true"></i> Usuarios
+      </button>
+      <button class="tab" id="tab-docs" onclick="switchTab('docs')">
+        <i class="ti ti-files" aria-hidden="true"></i> Documentos
+      </button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total usuarios</div>
+        <div class="stat-value" id="stat-users">—</div>
+        <div class="stat-sub">registrados en el sistema</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total documentos</div>
+        <div class="stat-value" id="stat-docs">—</div>
+        <div class="stat-sub">de todos los usuarios</div>
+      </div>
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">
+            <span id="table-title-text">Usuarios</span>
+            <span class="index-hint" id="index-hint">idx_users_created_at_desc</span>
+          </span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="search-wrap">
+              <i class="ti ti-search search-icon" aria-hidden="true"></i>
+              <input type="text" id="search-input" class="search-input" placeholder="Buscar…" oninput="onSearch(this.value)" />
+            </div>
+            <button id="sort-btn" class="icon-btn" title="Más recientes primero" onclick="toggleSort()" style="flex-shrink:0">
+              <i class="ti ti-sort-descending-2" aria-hidden="true"></i>
+            </button>
+            <span style="font-size:11px;color:var(--text-muted);white-space:nowrap" id="row-count"></span>
+          </div>
+        </div>
+
+        <!-- Filtro activo (documentos por owner) -->
+        <div class="filter-bar" id="filter-bar">
+          <i class="ti ti-filter" aria-hidden="true"></i>
+          <span>Documentos de <strong id="filter-owner-name"></strong></span>
+          <span class="owner-chip" id="filter-owner-id"></span>
+          <span class="clear-filter" onclick="clearOwnerFilter()">
+            <i class="ti ti-x" aria-hidden="true"></i> Quitar filtro
+          </span>
+        </div>
+
+        <table>
+          <thead id="table-head"></thead>
+          <tbody id="table-body">
+            <tr><td colspan="5"><div class="empty-state"><i class="ti ti-loader-2" aria-hidden="true"></i>Cargando…</div></td></tr>
+          </tbody>
+        </table>
+        <div class="pagination" id="pagination" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal detalle documento -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Documento</div>
+        <div class="modal-subtitle" id="modal-id"></div>
+      </div>
+      <button class="icon-btn" onclick="closeModalDirect()" style="flex-shrink:0">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalDirect()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  const API     = () => localStorage.getItem('api_base') || 'http://localhost:8000';
+  const TOKEN   = () => localStorage.getItem('jwt_token');
+  const HEADERS = () => ({ 'Authorization': `Bearer ${TOKEN()}`, 'Content-Type': 'application/json' });
+
+  const PAGE_SIZE = 25;
+
+  let activeTab = 'users';           // 'users' | 'docs'
+  let allUsers = [];                 // catálogo completo de usuarios (para mapear owner_id -> nombre)
+  let userById = {};                 // id -> usuario
+  let rows = [];                     // filas actualmente listadas (usuarios o documentos)
+  let filtered = [];                 // tras búsqueda
+  let currentPage = 1;
+  let sortOrder = 'desc';
+  let currentSearch = '';
+  let searchDebounce = null;
+  let ownerFilter = null;            // { id, name } cuando se filtran documentos por usuario
+
+  if (!TOKEN()) window.location.href = 'index.html';
+
+  // ── Toast ──
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    const icon = type === 'success' ? 'ti-check' : 'ti-alert-circle';
+    t.innerHTML = `<i class="ti ${icon}" aria-hidden="true"></i> ${msg}`;
+    t.className = `toast ${type} show`;
+    setTimeout(() => { t.classList.remove('show'); }, 3000);
+  }
+
+  // ── Progress ──
+  function animProgress() {
+    const w = document.getElementById('progress-wrap');
+    const f = document.getElementById('progress-fill');
+    w.classList.add('visible'); f.style.width = '0%';
+    let p = 0;
+    const iv = setInterval(() => {
+      p += Math.random() * 12 + 4;
+      if (p >= 90) { p = 90; clearInterval(iv); }
+      f.style.width = p + '%';
+    }, 120);
+    return { f, w };
+  }
+  function endProgress({ f, w }) {
+    f.style.width = '100%';
+    setTimeout(() => { w.classList.remove('visible'); f.style.width = '0%'; }, 400);
+  }
+
+  // ── Helpers ──
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function initials(name) {
+    return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  }
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function ownerName(ownerId) {
+    const u = userById[ownerId];
+    return u ? (u.username || u.email) : null;
+  }
+
+  // ── Usuario actual + control de acceso ──
+  // Devuelve true solo si el usuario autenticado es superusuario.
+  async function ensureSuperuser() {
+    try {
+      const res = await fetch(`${API()}/api/v1/auth/me`, { headers: HEADERS() });
+      if (res.status === 401) { logout(); return false; }
+      if (!res.ok) { renderError('No se pudo verificar la sesión.'); return false; }
+
+      const u = await res.json();
+      const name = u.username || u.email || 'admin';
+      document.getElementById('user-name').textContent = name;
+      document.getElementById('avatar').textContent = initials(name);
+
+      if (!u.is_superuser) {
+        showToast('Acceso restringido: solo administradores.', 'error');
+        setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);
+        return false;
+      }
+      return true;
+    } catch {
+      renderError('No se pudo conectar con la API.');
+      return false;
+    }
+  }
+
+  // ── Stats globales ──
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API()}/api/v1/admin/stats`, { headers: HEADERS() });
+      if (res.ok) {
+        const s = await res.json();
+        document.getElementById('stat-users').textContent = s.total_users ?? '—';
+        document.getElementById('stat-docs').textContent  = s.total_documents ?? '—';
+      }
+    } catch {}
+  }
+
+  // ── Tabs ──
+  function switchTab(tab) {
+    if (tab === activeTab) return;
+    activeTab = tab;
+    currentPage = 1;
+    currentSearch = '';
+    document.getElementById('search-input').value = '';
+    document.getElementById('tab-users').classList.toggle('active', tab === 'users');
+    document.getElementById('tab-docs').classList.toggle('active', tab === 'docs');
+
+    const isUsers = tab === 'users';
+    document.getElementById('table-title-text').textContent = isUsers ? 'Usuarios' : 'Documentos';
+    document.getElementById('search-input').placeholder = isUsers ? 'Buscar usuario…' : 'Buscar por nombre…';
+    updateIndexHint();
+
+    if (isUsers) { clearOwnerFilterState(); reloadUsers(); }
+    else reloadDocs();
+  }
+
+  function updateIndexHint() {
+    const hint = document.getElementById('index-hint');
+    if (activeTab === 'users') {
+      hint.textContent = 'idx_users_created_at_desc';
+      hint.title = 'El orden por fecha de alta usa este índice';
+    } else if (ownerFilter) {
+      hint.textContent = 'ix_documents_owner_created';
+      hint.title = 'El filtro por owner_id + orden por fecha usa este índice compuesto';
+    } else {
+      hint.textContent = 'colección documents';
+      hint.title = 'Vista global (sin filtro por owner)';
+    }
+  }
+
+  // ── Carga usuarios ──
+  async function reloadUsers() {
+    const prog = animProgress();
+    try {
+      const res = await fetch(`${API()}/api/v1/admin/users?order=${sortOrder}`, { headers: HEADERS() });
+      endProgress(prog);
+      if (res.status === 401) { logout(); return; }
+      if (res.ok) {
+        const data = await res.json();
+        allUsers = Array.isArray(data) ? data : [];
+        userById = Object.fromEntries(allUsers.map(u => [u.id, u]));
+        rows = allUsers;
+        applySearch();
+      } else {
+        renderError('No se pudo cargar la lista de usuarios.');
+      }
+    } catch {
+      endProgress(prog);
+      renderError('No se pudo conectar con la API.');
+    }
+  }
+
+  // ── Carga documentos ──
+  async function reloadDocs() {
+    // Aseguramos tener el catálogo de usuarios para mostrar el propietario
+    if (!allUsers.length) {
+      try {
+        const r = await fetch(`${API()}/api/v1/admin/users?order=desc`, { headers: HEADERS() });
+        if (r.ok) { allUsers = await r.json(); userById = Object.fromEntries(allUsers.map(u => [u.id, u])); }
+      } catch {}
+    }
+
+    const prog = animProgress();
+    try {
+      const params = new URLSearchParams();
+      if (ownerFilter) params.set('owner_id', ownerFilter.id);
+      if (currentSearch) params.set('search', currentSearch);
+      params.set('order', sortOrder);
+      const res = await fetch(`${API()}/api/v1/admin/documents?${params.toString()}`, { headers: HEADERS() });
+      endProgress(prog);
+      if (res.status === 401) { logout(); return; }
+      if (res.ok) {
+        rows = await res.json();
+        // La búsqueda de documentos ya la resuelve el backend; no re-filtramos en cliente.
+        filtered = rows;
+        currentPage = 1;
+        renderPage();
+      } else {
+        renderError('No se pudo cargar la lista de documentos.');
+      }
+    } catch {
+      endProgress(prog);
+      renderError('No se pudo conectar con la API.');
+    }
+  }
+
+  function reloadActive() {
+    loadStats();
+    if (activeTab === 'users') reloadUsers();
+    else reloadDocs();
+  }
+
+  // ── Búsqueda ──
+  // Usuarios: filtro en cliente (dataset acotado).
+  // Documentos: se delega al backend (param search) para reusar el filtro de Mongo.
+  function onSearch(value) {
+    currentSearch = value.trim();
+    clearTimeout(searchDebounce);
+    if (activeTab === 'users') {
+      searchDebounce = setTimeout(() => { currentPage = 1; applySearch(); }, 200);
+    } else {
+      searchDebounce = setTimeout(reloadDocs, 300);
+    }
+  }
+
+  function applySearch() {
+    if (activeTab === 'users' && currentSearch) {
+      const q = currentSearch.toLowerCase();
+      filtered = rows.filter(u =>
+        (u.username || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.full_name || '').toLowerCase().includes(q)
+      );
+    } else {
+      filtered = rows;
+    }
+    renderPage();
+  }
+
+  function toggleSort() {
+    sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+    const btn = document.getElementById('sort-btn');
+    if (sortOrder === 'desc') {
+      btn.title = 'Más recientes primero';
+      btn.querySelector('i').className = 'ti ti-sort-descending-2';
+    } else {
+      btn.title = 'Más antiguos primero';
+      btn.querySelector('i').className = 'ti ti-sort-ascending-2';
+    }
+    if (activeTab === 'users') reloadUsers();
+    else reloadDocs();
+  }
+
+  // ── Filtro por owner (documentos de un usuario) ──
+  function viewUserDocs(id) {
+    const u = userById[id];
+    ownerFilter = { id, name: u ? (u.username || u.email) : id };
+    activeTab = 'docs';
+    currentPage = 1;
+    currentSearch = '';
+    document.getElementById('search-input').value = '';
+    document.getElementById('tab-users').classList.remove('active');
+    document.getElementById('tab-docs').classList.add('active');
+    document.getElementById('table-title-text').textContent = 'Documentos';
+    document.getElementById('search-input').placeholder = 'Buscar por nombre…';
+
+    const bar = document.getElementById('filter-bar');
+    bar.classList.add('visible');
+    document.getElementById('filter-owner-name').textContent = ownerFilter.name;
+    document.getElementById('filter-owner-id').textContent = id;
+    updateIndexHint();
+    reloadDocs();
+  }
+
+  function clearOwnerFilterState() {
+    ownerFilter = null;
+    document.getElementById('filter-bar').classList.remove('visible');
+  }
+
+  function clearOwnerFilter() {
+    clearOwnerFilterState();
+    currentSearch = '';
+    document.getElementById('search-input').value = '';
+    updateIndexHint();
+    reloadDocs();
+  }
+
+  // ── Render ──
+  function renderPage() {
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageRows = filtered.slice(start, start + PAGE_SIZE);
+    const end = Math.min(start + PAGE_SIZE, total);
+
+    const noun = activeTab === 'users' ? 'usuario' : 'documento';
+    document.getElementById('row-count').textContent = total
+      ? `${start + 1}–${end} de ${total} ${noun}${total !== 1 ? 's' : ''}`
+      : `0 ${noun}s`;
+
+    if (activeTab === 'users') renderUsers(pageRows);
+    else renderDocs(pageRows);
+
+    renderPagination(totalPages);
+  }
+
+  function renderUsers(users) {
+    document.getElementById('table-head').innerHTML = `
+      <tr>
+        <th>Usuario</th>
+        <th>Nombre</th>
+        <th>Estado</th>
+        <th>Registrado</th>
+        <th>Acciones</th>
+      </tr>`;
+    const tbody = document.getElementById('table-body');
+
+    if (!users.length) {
+      const msg = currentSearch
+        ? `<i class="ti ti-search-off" aria-hidden="true"></i>Sin resultados para esa búsqueda.`
+        : `<i class="ti ti-users" aria-hidden="true"></i>No hay usuarios.`;
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">${msg}</div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+      const name = u.username || u.email || '—';
+      const stateBadge = u.is_active
+        ? `<span class="badge badge-done"><i class="ti ti-check" aria-hidden="true"></i> Activo</span>`
+        : `<span class="badge badge-err"><i class="ti ti-x" aria-hidden="true"></i> Inactivo</span>`;
+      return `
+        <tr>
+          <td>
+            <div class="file-cell">
+              <div class="user-avatar" style="background:rgba(107,94,255,0.2);color:var(--accent)">${escHtml(initials(name))}</div>
+              <div>
+                <div class="file-name">${escHtml(u.username || '—')}</div>
+                <div class="file-id">${escHtml(u.email || '')}</div>
+              </div>
+            </div>
+          </td>
+          <td style="color:var(--text-secondary)">${escHtml(u.full_name || '—')}</td>
+          <td>${stateBadge}</td>
+          <td style="color:var(--text-secondary)">${formatDate(u.created_at)}</td>
+          <td>
+            <div class="actions">
+              <button class="icon-btn ai" title="Ver documentos del usuario" onclick="viewUserDocs('${u.id}')">
+                <i class="ti ti-files" aria-hidden="true"></i>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderDocs(docs) {
+    document.getElementById('table-head').innerHTML = `
+      <tr>
+        <th>Archivo</th>
+        <th>Propietario</th>
+        <th>Subido</th>
+        <th>Acciones</th>
+      </tr>`;
+    const tbody = document.getElementById('table-body');
+
+    if (!docs.length) {
+      const msg = (currentSearch || ownerFilter)
+        ? `<i class="ti ti-search-off" aria-hidden="true"></i>Sin documentos para ese criterio.`
+        : `<i class="ti ti-file-off" aria-hidden="true"></i>No hay documentos.`;
+      tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">${msg}</div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = docs.map(doc => {
+      const id = doc.id || doc._id || '';
+      const oid = doc.owner_id || '';
+      const oname = ownerName(oid);
+      const ownerHtml = oname
+        ? `<span class="owner-chip"><i class="ti ti-user" aria-hidden="true"></i> ${escHtml(oname)}</span>`
+        : `<span class="owner-chip" title="${escHtml(oid)}"><i class="ti ti-user" aria-hidden="true"></i> ${escHtml(oid.slice(0, 8))}…</span>`;
+      return `
+        <tr>
+          <td>
+            <div class="file-cell">
+              <div class="file-icon"><i class="ti ti-file-type-pdf" aria-hidden="true"></i></div>
+              <div>
+                <div class="file-name">${escHtml(doc.filename || 'Sin nombre')}</div>
+                <div class="file-id">${id}</div>
+              </div>
+            </div>
+          </td>
+          <td>${ownerHtml}</td>
+          <td style="color:var(--text-secondary)">${formatDate(doc.created_at || doc.updated_at)}</td>
+          <td>
+            <div class="actions">
+              <button class="icon-btn" title="Ver detalle" onclick='openDetail(${JSON.stringify(id)})'>
+                <i class="ti ti-eye" aria-hidden="true"></i>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderPagination(totalPages) {
+    const el = document.getElementById('pagination');
+    if (totalPages <= 1) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage   = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+
+    let html = `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+      <i class="ti ti-chevron-left" aria-hidden="true"></i></button>`;
+    if (startPage > 1) {
+      html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+      if (startPage > 2) html += `<span class="page-info">…</span>`;
+    }
+    for (let p = startPage; p <= endPage; p++) {
+      html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
+    }
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) html += `<span class="page-info">…</span>`;
+      html += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+    html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+      <i class="ti ti-chevron-right" aria-hidden="true"></i></button>`;
+    el.innerHTML = html;
+  }
+
+  function goToPage(page) {
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    renderPage();
+    document.querySelector('.table-wrap').scrollTop = 0;
+  }
+
+  function renderError(msg) {
+    document.getElementById('table-head').innerHTML = '';
+    document.getElementById('table-body').innerHTML =
+      `<tr><td colspan="5"><div class="empty-state"><i class="ti ti-wifi-off" aria-hidden="true"></i>${msg}</div></td></tr>`;
+    document.getElementById('pagination').style.display = 'none';
+  }
+
+  // ── Modal detalle documento ──
+  async function openDetail(id) {
+    document.getElementById('modal-id').textContent = id;
+    document.getElementById('modal-title').textContent = 'Cargando…';
+    document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-secondary);font-size:13px">Cargando documento…</div>`;
+    document.getElementById('modal-overlay').classList.add('open');
+
+    // Reutilizamos lo ya cargado en la grilla; el admin lista incluye el texto.
+    const doc = (rows || []).find(d => (d.id || d._id) === id);
+    try {
+      if (!doc) throw new Error('not found');
+      document.getElementById('modal-title').textContent = doc.filename || 'Documento';
+      let html = '';
+      if (doc.text) {
+        html += `<div class="section-wrap">
+          <div class="section-label-row">
+            <div class="modal-section-label" style="margin-bottom:0">Texto extraído</div>
+            <button class="btn-copy" onclick="copyText(this, 'text-extracted')">
+              <i class="ti ti-copy" aria-hidden="true"></i> Copiar
+            </button>
+          </div>
+          <div class="text-box" id="text-extracted">${escHtml(doc.text)}</div>
+        </div>`;
+      }
+      if (doc.summary) {
+        html += `<div class="section-wrap">
+          <div class="modal-section-label">Resumen IA</div>
+          <div class="text-box">${escHtml(doc.summary)}</div>
+        </div>`;
+      }
+      if (!html) html = `<div style="color:var(--text-secondary);font-size:13px">Este documento no tiene texto extraído.</div>`;
+      document.getElementById('modal-body').innerHTML = html;
+    } catch {
+      document.getElementById('modal-body').innerHTML = `<div style="color:var(--text-muted);font-size:13px">No se pudo cargar el documento.</div>`;
+    }
+  }
+
+  function copyText(btn, elementId) {
+    const text = document.getElementById(elementId)?.innerText || '';
+    navigator.clipboard.writeText(text).then(() => {
+      btn.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = '<i class="ti ti-copy" aria-hidden="true"></i> Copiar';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  function closeModal(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+  }
+  function closeModalDirect() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  function logout() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('api_base');
+    window.location.href = 'index.html';
+  }
+
+  // ── Init ──
+  (async () => {
+    const allowed = await ensureSuperuser();
+    if (!allowed) return;          // no cargamos datos si no es admin
+    loadStats();
+    reloadUsers();
+  })();
+</script>
+
+</body>
+</html>
